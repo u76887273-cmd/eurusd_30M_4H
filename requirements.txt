@@ -1,0 +1,9 @@
+ctrader-open-api
+twisted
+service_identity
+pandas
+numpy
+scikit-learn
+joblib
+psycopg[binary]
+yfinance
