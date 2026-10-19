@@ -1,7 +1,7 @@
 import os
 import datetime
 import pandas as pd
-from twisted.internet import reactor, defer
+from twisted.internet import reactor
 from ctrader_open_api import Client, Protobuf, TcpProtocol, EndPoints
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import *
 from ctrader_open_api.messages.OpenApiMessages_pb2 import *
@@ -10,13 +10,11 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import *
 CLIENT_ID = os.environ.get("CTRADER_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("CTRADER_CLIENT_SECRET")
 ACCESS_TOKEN = os.environ.get("CTRADER_ACCESS_TOKEN")
-ACCOUNT_ID = int(os.environ.get("CTRADER_ACCOUNT_ID", 0))
-
-# EURUSD FIX Symbol ID = 1 from cTrader specification
-SYMBOL_ID = 1
+ACCOUNT_ID = int(os.environ.get("ACCOUNT_ID") or os.environ.get("CTRADER_ACCOUNT_ID") or 0)
+SYMBOL_ID = int(os.environ.get("SYMBOL_ID") or 1)  # FIX Symbol ID = 1 for EUR/USD
 
 TIMEFRAMES = {
-    "30m": {"period": ProtoOATrendbarPeriod.M30, "days": 45, "file": "data_30m.csv"},
+    "30m": {"period": ProtoOATrendbarPeriod.M30, "days": 45,  "file": "data_30m.csv"},
     "4h":  {"period": ProtoOATrendbarPeriod.H4,  "days": 180, "file": "data_4h.csv"}
 }
 
@@ -24,13 +22,13 @@ client = Client(EndPoints.PROTOBUF_LIVE_HOST, EndPoints.PROTOBUF_PORT, TcpProtoc
 tf_queue = list(TIMEFRAMES.keys())
 
 def on_error(failure):
-    print(f"API Error: {failure}")
+    print(f"cTrader API Error: {failure}")
     if reactor.running:
         reactor.stop()
 
 def fetch_next_timeframe():
     if not tf_queue:
-        print("All EURUSD timeframes fetched successfully.")
+        print("Completed fetching both 30m and 4h EUR/USD data.")
         if reactor.running:
             reactor.stop()
         return
@@ -54,11 +52,9 @@ def fetch_next_timeframe():
 
 def on_trendbars(result, tf_key):
     res = Protobuf.extract(result)
-    bars = res.trendbar
     rows = []
 
-    for b in bars:
-        # cTrader stores standard forex prices scaled by 100,000 (5 decimals)
+    for b in res.trendbar:
         low = b.low / 100000.0
         open_p = (b.low + b.deltaOpen) / 100000.0
         close_p = (b.low + b.deltaClose) / 100000.0
@@ -76,11 +72,11 @@ def on_trendbars(result, tf_key):
     df = pd.DataFrame(rows).sort_values("timestamp").reset_index(drop=True)
     out_file = TIMEFRAMES[tf_key]["file"]
     df.to_csv(out_file, index=False)
-    print(f"[{tf_key.upper()}] Saved {len(df)} bars to {out_file} (Latest close: {df['close'].iloc[-1]:.5f})")
+    print(f"[{tf_key.upper()}] Saved {len(df)} bars -> {out_file} (Latest: {df['close'].iloc[-1]:.5f})")
     fetch_next_timeframe()
 
 def on_account_auth(result):
-    print("Account authenticated. Fetching EURUSD 30m & 4h data...")
+    print("cTrader account authenticated. Pulling EUR/USD M30 & H4 bars...")
     fetch_next_timeframe()
 
 def on_app_auth(result):
@@ -92,7 +88,7 @@ def on_app_auth(result):
     d.addErrback(on_error)
 
 def connected(client_instance):
-    req = ProtoOA ApplicationAuthReq() if False else ProtoOAApplicationAuthReq()
+    req = ProtoOAApplicationAuthReq()
     req.clientId = CLIENT_ID
     req.clientSecret = CLIENT_SECRET
     d = client_instance.send(req)
