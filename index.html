@@ -1,319 +1,337 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EUR/USD Quantum Supreme — 30M & 4H Unified Engine</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    :root {
-      --bg: #070b14;
-      --card: #111827;
-      --border: #1f2937;
-      --text: #f9fafb;
-      --muted: #9ca3af;
-      --green: #10b981;
-      --red: #ef4444;
-      --accent: #38bdf8;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      padding: 16px;
-    }
-
-    /* Main Layout: Dual Engine + Side US$ Index Arrow Panel */
-    .top-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px 20px;
-      margin-bottom: 18px;
-      flex-wrap: wrap;
-      gap: 14px;
-    }
-    .brand h1 { font-size: 1.35rem; letter-spacing: 0.6px; color: #fff; }
-    .brand p { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
-
-    /* Glowing US Dollar Index (#US$idx) Side Box */
-    .dxy-side-card {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      background: #0b1120;
-      border: 1px solid var(--border);
-      padding: 10px 18px;
-      border-radius: 10px;
-    }
-    .dxy-meta { text-align: right; }
-    .dxy-title { font-size: 0.76rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .dxy-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; font-family: monospace; }
-    .dxy-arrow-badge {
-      font-size: 1.15rem;
-      font-weight: 800;
-      padding: 6px 14px;
-      border-radius: 8px;
-      letter-spacing: 0.5px;
-      transition: all 0.3s ease;
-    }
-    .dxy-up {
-      color: var(--green);
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.4);
-      box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
-    }
-    .dxy-down {
-      color: var(--red);
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-      box-shadow: 0 0 14px rgba(239, 68, 68, 0.35);
-    }
-    .dxy-flat {
-      color: var(--muted);
-      background: rgba(156, 163, 175, 0.12);
-      border: 1px solid var(--border);
-    }
-
-    /* Side-by-Side 30M and 4H Grid */
-    .engine-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-    }
-    @media (max-width: 980px) {
-      .engine-grid { grid-template-columns: 1fr; }
-    }
-
-    .tf-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-    }
-    .tf-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 12px;
-      margin-bottom: 14px;
-      border-bottom: 1px solid var(--border);
-    }
-    .tf-tag {
-      background: rgba(56, 189, 248, 0.14);
-      color: var(--accent);
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-weight: 700;
-      font-size: 0.88rem;
-    }
-    .win-rate { font-size: 0.8rem; color: var(--muted); font-family: monospace; }
-
-    /* Clean 3-Box Row (No -40 / +40 clutter) */
-    .hero-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .stat-box {
-      background: #0b1120;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 8px;
-      text-align: center;
-    }
-    .stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; margin-bottom: 5px; }
-    .stat-value { font-size: 1.05rem; font-weight: 700; font-family: monospace; color: #fff; }
-
-    .sig-badge { padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; }
-    .BUY { background: rgba(16, 185, 129, 0.2); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.35); }
-    .SELL { background: rgba(239, 68, 68, 0.2); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.35); }
-    .NEUTRAL { background: rgba(156, 163, 175, 0.15); color: var(--muted); }
-
-    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
-    th, td { padding: 9px 6px; text-align: left; border-bottom: 1px solid var(--border); font-family: monospace; }
-    th { color: var(--muted); font-family: sans-serif; font-weight: 600; font-size: 0.76rem; text-transform: uppercase; }
-    .HIT_TP { color: var(--green); font-weight: 700; }
-    .ACTIVE { color: var(--accent); }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EUR/USD Quantum Supreme (30M & 4H)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glow-text { text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .glow-green { text-shadow: 0 0 12px rgba(16, 185, 129, 0.6); }
+        .glow-red { text-shadow: 0 0 12px rgba(244, 63, 94, 0.6); }
+    </style>
 </head>
-<body>
+<body class="min-h-screen flex flex-col items-center p-4 sm:p-8">
 
-  <div class="top-header">
-    <div class="brand">
-      <h1>EUR/USD QUANTUM SUPREME</h1>
-      <p id="sync-status">5-Minute Autonomous Cycle • Dual 30M & 4H Grid Engine</p>
+    <div class="max-w-5xl w-full">
+        <!-- Header + Side US$ Index Arrow -->
+        <div class="glass rounded-2xl p-5 mb-6 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="text-center sm:text-left">
+                <h1 class="text-3xl font-bold text-sky-400 glow-text">EUR/USD</h1>
+                <p class="text-xs text-slate-400 uppercase tracking-widest mt-1">Dual 30-Min & 4-Hour Quantum Engine</p>
+                <div id="connection-status" class="mt-2 text-xs font-mono text-yellow-400">Connecting to database...</div>
+            </div>
+
+            <!-- Live Price & Time -->
+            <div class="flex items-center gap-6 border-y sm:border-y-0 sm:border-x border-slate-700 py-3 sm:py-0 sm:px-6">
+                <div class="text-center">
+                    <p class="text-[11px] text-slate-400 uppercase tracking-wide">Latest Update</p>
+                    <p id="time-val" class="text-sm font-mono font-semibold text-slate-200 mt-1">--</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-[11px] text-slate-400 uppercase tracking-wide">Current Price</p>
+                    <p id="price-val" class="text-2xl font-mono font-bold text-white">--</p>
+                </div>
+            </div>
+
+            <!-- Side US Dollar Index (#US$idx) Direction Arrow -->
+            <div class="bg-slate-900/80 border border-slate-700 rounded-xl px-5 py-3 text-center min-w-[180px]">
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest mb-1">US$ Index (#US$idx)</p>
+                <div id="dxy-arrow" class="text-2xl font-extrabold font-mono text-slate-400">► WAIT</div>
+                <p id="dxy-sub" class="text-[11px] font-mono text-slate-500 mt-0.5">15M Momentum</p>
+            </div>
+        </div>
+
+        <!-- Dual Timeframe Grid (30M & 4H on One Screen) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- ================= 30-MINUTE (30M) ENGINE ================= -->
+            <div class="glass rounded-2xl p-6 shadow-2xl space-y-6">
+                <div class="flex items-center justify-between border-b border-slate-700 pb-4">
+                    <span class="px-3 py-1 bg-sky-500/20 border border-sky-500/40 text-sky-400 rounded-lg text-xs font-bold uppercase tracking-wider">
+                        30-Minute (30M)
+                    </span>
+                    <span id="status-30m" class="text-xs font-mono text-slate-400">Status: --</span>
+                </div>
+
+                <!-- Signal Area -->
+                <div class="text-center py-6 bg-slate-800/50 rounded-xl border border-slate-700">
+                    <p class="text-xs text-slate-400 uppercase tracking-widest mb-2">30M Final AI Signal</p>
+                    <h2 id="signal-val-30m" class="text-5xl font-extrabold tracking-tight text-white mb-2">WAIT</h2>
+                    <p id="reason-val-30m" class="text-xs font-mono text-slate-400">Waiting for data...</p>
+                </div>
+
+                <!-- Trade Zones -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-emerald-900/20 border border-emerald-800/50 rounded-xl p-4 text-center">
+                        <p class="text-xs text-emerald-400 uppercase tracking-wider mb-1">Buy Limits</p>
+                        <p id="buy-zone-30m" class="font-mono text-sm text-emerald-100">--</p>
+                    </div>
+                    <div class="bg-rose-900/20 border border-rose-800/50 rounded-xl p-4 text-center">
+                        <p class="text-xs text-rose-400 uppercase tracking-wider mb-1">Sell Limits</p>
+                        <p id="sell-zone-30m" class="font-mono text-sm text-rose-100">--</p>
+                    </div>
+                </div>
+
+                <!-- Clean Equilibrium Target (TP) — No -40 / +40 -->
+                <div class="text-center pt-4 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 uppercase tracking-wider mb-3">30M Equilibrium Target (TP)</p>
+                    <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 shadow-inner">
+                        <p id="tp-val-30m" class="font-mono text-3xl font-extrabold text-sky-400 glow-text">--</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= 4-HOUR (4H) ENGINE ================= -->
+            <div class="glass rounded-2xl p-6 shadow-2xl space-y-6">
+                <div class="flex items-center justify-between border-b border-slate-700 pb-4">
+                    <span class="px-3 py-1 bg-purple-500/20 border border-purple-500/40 text-purple-300 rounded-lg text-xs font-bold uppercase tracking-wider">
+                        4-Hour (4H)
+                    </span>
+                    <span id="status-4h" class="text-xs font-mono text-slate-400">Status: --</span>
+                </div>
+
+                <!-- Signal Area -->
+                <div class="text-center py-6 bg-slate-800/50 rounded-xl border border-slate-700">
+                    <p class="text-xs text-slate-400 uppercase tracking-widest mb-2">4H Final AI Signal</p>
+                    <h2 id="signal-val-4h" class="text-5xl font-extrabold tracking-tight text-white mb-2">WAIT</h2>
+                    <p id="reason-val-4h" class="text-xs font-mono text-slate-400">Waiting for data...</p>
+                </div>
+
+                <!-- Trade Zones -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-emerald-900/20 border border-emerald-800/50 rounded-xl p-4 text-center">
+                        <p class="text-xs text-emerald-400 uppercase tracking-wider mb-1">Buy Limits</p>
+                        <p id="buy-zone-4h" class="font-mono text-sm text-emerald-100">--</p>
+                    </div>
+                    <div class="bg-rose-900/20 border border-rose-800/50 rounded-xl p-4 text-center">
+                        <p class="text-xs text-rose-400 uppercase tracking-wider mb-1">Sell Limits</p>
+                        <p id="sell-zone-4h" class="font-mono text-sm text-rose-100">--</p>
+                    </div>
+                </div>
+
+                <!-- Clean Equilibrium Target (TP) — No -40 / +40 -->
+                <div class="text-center pt-4 border-t border-slate-700">
+                    <p class="text-xs text-sky-400 uppercase tracking-wider mb-3">4H Equilibrium Target (TP)</p>
+                    <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 shadow-inner">
+                        <p id="tp-val-4h" class="font-mono text-3xl font-extrabold text-sky-400 glow-text">--</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Buttons Area -->
+        <div class="flex flex-col sm:flex-row justify-center gap-4 mt-8">
+            <button onclick="fetchData()" class="px-6 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-full font-semibold transition-colors shadow-[0_0_15px_rgba(2,132,199,0.5)]">
+                Refresh Data
+            </button>
+
+            <!-- FORCE RUN BUTTON -->
+            <button onclick="forceRun()" class="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-full font-semibold transition-colors shadow-[0_0_15px_rgba(217,119,6,0.5)] flex items-center justify-center gap-2">
+                <span>⚡ Force Engine Run</span>
+            </button>
+        </div>
     </div>
 
-    <!-- Side US Dollar Index (#US$idx) Momentum Indicator -->
-    <div class="dxy-side-card">
-      <div class="dxy-meta">
-        <div class="dxy-title">US$ Index (#US$idx) 15M</div>
-        <div id="dxy-details" class="dxy-sub">Syncing live DXY...</div>
-      </div>
-      <div id="dxy-arrow" class="dxy-arrow-badge dxy-flat">► FLAT</div>
-    </div>
-  </div>
+    <script>
+        const SUPABASE_URL = "https://nabjqvmgytcnlezyxnly.supabase.co"; 
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5hYmpxdm1neXRjbmxlenl4bmx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MDg1MzcsImV4cCI6MjEwNjQ4NDUzN30.HRR0_Yu6xIUE7DAdqvPJlUOu37Gkz8xX6g4rsIVN98I";
 
-  <div class="engine-grid">
-    <!-- 30-MINUTE ENGINE -->
-    <div class="tf-card">
-      <div class="tf-top">
-        <span class="tf-tag">30-MINUTE (M30)</span>
-        <span id="stats-30m" class="win-rate">Active: 0 | Hit TP: 0</span>
-        <span id="sig-30m" class="sig-badge NEUTRAL">--</span>
-      </div>
-      <div class="hero-stats">
-        <div class="stat-box">
-          <div class="stat-label">Live Price</div>
-          <div id="price-30m" class="stat-value">--</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">Entry Zone</div>
-          <div id="zone-30m" class="stat-value">--</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">Target (TP)</div>
-          <div id="tp-30m" class="stat-value">--</div>
-        </div>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Signal</th>
-            <th>Entry</th>
-            <th>Target</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-30m"></tbody>
-      </table>
-    </div>
+        const GITHUB_USERNAME = window.location.hostname.includes("github.io") 
+            ? window.location.hostname.split(".")[0] 
+            : "u76887273-cmd"; 
+        const GITHUB_REPO = window.location.pathname.split("/")[1] || "EURUSD-Quantum-"; 
 
-    <!-- 4-HOUR ENGINE -->
-    <div class="tf-card">
-      <div class="tf-top">
-        <span class="tf-tag">4-HOUR (H4)</span>
-        <span id="stats-4h" class="win-rate">Active: 0 | Hit TP: 0</span>
-        <span id="sig-4h" class="sig-badge NEUTRAL">--</span>
-      </div>
-      <div class="hero-stats">
-        <div class="stat-box">
-          <div class="stat-label">Live Price</div>
-          <div id="price-4h" class="stat-value">--</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">Entry Zone</div>
-          <div id="zone-4h" class="stat-value">--</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">Target (TP)</div>
-          <div id="tp-4h" class="stat-value">--</div>
-        </div>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Signal</th>
-            <th>Entry</th>
-            <th>Target</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-4h"></tbody>
-      </table>
-    </div>
-  </div>
+        function updateDxyArrow(rawReason) {
+            if (!rawReason) return;
+            const arrowEl = document.getElementById('dxy-arrow');
+            const subEl = document.getElementById('dxy-sub');
 
-  <script>
-    // Pre-configured with your existing Supabase URL
-    const SUPABASE_URL = "https://nabjqvmgytcnlezyxnly.supabase.co";
-    // Paste your same eyJ... anon key from your US30 index.html below:
-    const SUPABASE_ANON_KEY = "PASTE_YOUR_SAME_SUPABASE_ANON_KEY_HERE";
+            const match = rawReason.match(/DXY:(UP|DOWN|FLAT)\s*(\([^)]+\))?/i);
+            if (match) {
+                const dir = match[1].toUpperCase();
+                const detail = match[2] || "";
+                if (dir === "UP") {
+                    arrowEl.innerText = "▲ UP";
+                    arrowEl.className = "text-2xl font-extrabold font-mono text-emerald-400 glow-green";
+                    subEl.innerText = detail ? `${detail} • USD Strong` : "USD Strong (EURUSD ▼)";
+                } else if (dir === "DOWN") {
+                    arrowEl.innerText = "▼ DOWN";
+                    arrowEl.className = "text-2xl font-extrabold font-mono text-rose-400 glow-red";
+                    subEl.innerText = detail ? `${detail} • USD Weak` : "USD Weak (EURUSD ▲)";
+                } else {
+                    arrowEl.innerText = "► FLAT";
+                    arrowEl.className = "text-2xl font-extrabold font-mono text-slate-300";
+                    subEl.innerText = "Neutral Dollar Flow";
+                }
+            }
+        }
 
-    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        function renderTimeframeCard(tf, row) {
+            const sigEl = document.getElementById(`signal-val-${tf}`);
+            sigEl.innerText = row.signal || "WAIT";
+            if (row.signal === "BUY") {
+                sigEl.className = "text-5xl font-extrabold tracking-tight text-emerald-400 mb-2 glow-green";
+            } else if (row.signal === "SELL") {
+                sigEl.className = "text-5xl font-extrabold tracking-tight text-rose-400 mb-2 glow-red";
+            } else {
+                sigEl.className = "text-5xl font-extrabold tracking-tight text-slate-300 mb-2";
+            }
 
-    function renderDxyIndicator(reason) {
-      if (!reason) return;
-      const arrowEl = document.getElementById("dxy-arrow");
-      const detailEl = document.getElementById("dxy-details");
-      const match = reason.match(/DXY:(UP|DOWN|FLAT)\s*(\([^)]+\))?/);
-      if (!match) return;
+            const rawReason = row.reason || "Autonomous Execution";
+            const cleanReason = rawReason.replace(/\|\s*DXY:.*$/i, "").trim();
+            document.getElementById(`reason-val-${tf}`).innerText = cleanReason;
+            document.getElementById(`status-30m` === `status-${tf}` ? `status-${tf}` : `status-4h`).innerText = `Status: ${row.status || 'ACTIVE'}`;
 
-      const dir = match[1];
-      const info = match[2] || "";
-      if (dir === "UP") {
-        arrowEl.className = "dxy-arrow-badge dxy-up";
-        arrowEl.textContent = "▲ USD UP";
-        detailEl.textContent = `${info} • EUR/USD Pressure ▼`;
-      } else if (dir === "DOWN") {
-        arrowEl.className = "dxy-arrow-badge dxy-down";
-        arrowEl.textContent = "▼ USD DOWN";
-        detailEl.textContent = `${info} • EUR/USD Support ▲`;
-      } else {
-        arrowEl.className = "dxy-arrow-badge dxy-flat";
-        arrowEl.textContent = "► USD FLAT";
-        detailEl.textContent = info || "Neutral Dollar Flow";
-      }
-    }
+            const zoneText = row.entry_zone || "-";
+            if (zoneText.includes("|")) {
+                const parts = zoneText.split("|");
+                document.getElementById(`buy-zone-${tf}`).innerText = parts[0].replace("B:", "").trim();
+                document.getElementById(`sell-zone-${tf}`).innerText = parts[1].replace("S:", "").trim();
+            } else if (row.signal === "BUY") {
+                document.getElementById(`buy-zone-${tf}`).innerText = zoneText;
+                document.getElementById(`sell-zone-${tf}`).innerText = "WAITING";
+            } else if (row.signal === "SELL") {
+                document.getElementById(`buy-zone-${tf}`).innerText = "WAITING";
+                document.getElementById(`sell-zone-${tf}`).innerText = zoneText;
+            } else {
+                document.getElementById(`buy-zone-${tf}`).innerText = zoneText;
+                document.getElementById(`sell-zone-${tf}`).innerText = zoneText;
+            }
 
-    async function fetchPanel(tf, tableName) {
-      const { data, error } = await db
-        .from(tableName)
-        .select("*")
-        .order("id", { ascending: false })
-        .limit(15);
+            if (row.take_profit) {
+                document.getElementById(`tp-val-${tf}`).innerText = Number(row.take_profit).toFixed(5);
+            } else {
+                document.getElementById(`tp-val-${tf}`).innerText = "--";
+            }
+        }
 
-      if (error || !data || data.length === 0) return;
+        async function fetchTableLatest(tableName) {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/${tableName}?select=*&order=timestamp.desc&limit=1`, {
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                }
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errText}`);
+            }
+            return await response.json();
+        }
 
-      const latest = data[0];
-      document.getElementById(`price-${tf}`).textContent = Number(latest.price).toFixed(5);
-      document.getElementById(`zone-${tf}`).textContent = latest.entry_zone || "--";
-      document.getElementById(`tp-${tf}`).textContent = Number(latest.take_profit).toFixed(5);
+        async function fetchData() {
+            const statusEl = document.getElementById('connection-status');
+            statusEl.innerText = "Fetching latest 30M & 4H signals...";
+            statusEl.className = "mt-2 text-xs font-mono text-yellow-400";
 
-      const sigEl = document.getElementById(`sig-${tf}`);
-      sigEl.textContent = latest.signal;
-      sigEl.className = `sig-badge ${latest.signal}`;
+            try {
+                const [data30m, data4h] = await Promise.all([
+                    fetchTableLatest("eurusd_grid_log_30m"),
+                    fetchTableLatest("eurusd_grid_log_4h")
+                ]);
 
-      const hitCount = data.filter(r => r.status === "HIT_TP").length;
-      const activeCount = data.filter(r => r.status === "ACTIVE").length;
-      document.getElementById(`stats-${tf}`).textContent = `Active: ${activeCount} | Hit TP: ${hitCount}`;
+                let hasData = false;
 
-      if (tf === "30m") renderDxyIndicator(latest.reason);
+                if (data30m && data30m.length > 0) {
+                    hasData = true;
+                    const row30 = data30m[0];
+                    const date = new Date(row30.timestamp);
+                    document.getElementById('time-val').innerText = date.toLocaleString();
+                    document.getElementById('price-val').innerText = Number(row30.price).toFixed(5);
+                    renderTimeframeCard("30m", row30);
+                    updateDxyArrow(row30.reason);
+                }
 
-      const tbody = document.getElementById(`tbody-${tf}`);
-      tbody.innerHTML = data.map(r => {
-        const timeStr = new Date(r.created_at || r.timestamp).toISOString().slice(11, 16);
-        return `
-          <tr>
-            <td>${timeStr}</td>
-            <td><span class="sig-badge ${r.signal}">${r.signal}</span></td>
-            <td>${Number(r.entry).toFixed(5)}</td>
-            <td>${Number(r.take_profit).toFixed(5)}</td>
-            <td class="${r.status}">${r.status}</td>
-          </tr>
-        `;
-      }).join("");
-    }
+                if (data4h && data4h.length > 0) {
+                    hasData = true;
+                    const row4h = data4h[0];
+                    if (!data30m || data30m.length === 0) {
+                        const date = new Date(row4h.timestamp);
+                        document.getElementById('time-val').innerText = date.toLocaleString();
+                        document.getElementById('price-val').innerText = Number(row4h.price).toFixed(5);
+                        updateDxyArrow(row4h.reason);
+                    }
+                    renderTimeframeCard("4h", row4h);
+                }
 
-    async function syncDashboard() {
-      await Promise.all([
-        fetchPanel("30m", "eurusd_grid_log_30m"),
-        fetchPanel("4h", "eurusd_grid_log_4h")
-      ]);
-      document.getElementById("sync-status").textContent =
-        "5-Minute Autonomous Cycle • Last Synced: " + new Date().toLocaleTimeString();
-    }
+                if (hasData) {
+                    statusEl.innerText = "Live Dual Dashboard Active - Connected";
+                    statusEl.className = "mt-2 text-xs font-mono text-emerald-400";
+                } else {
+                    statusEl.innerText = "Connected - Waiting for first engine run...";
+                    statusEl.className = "mt-2 text-xs font-mono text-sky-400";
+                }
+            } catch (error) {
+                console.error(error);
+                statusEl.innerText = "Supabase Error: " + error.message;
+                statusEl.className = "mt-2 text-xs font-mono text-rose-500";
+            }
+        }
 
-    syncDashboard();
-    setInterval(syncDashboard, 30000);
-  </script>
+        async function forceRun() {
+            // Reuses the exact same token saved in Safari from your US30 / JP225 dashboards
+            let token = localStorage.getItem("github_pat") || localStorage.getItem("github_pat_us30");
+            
+            if (!token) {
+                token = prompt("🔒 FIRST TIME SETUP:\n\nPlease paste your GitHub Token (ghp_... or github_pat_...) here:");
+                if (!token) return; 
+                localStorage.setItem("github_pat", token.trim()); 
+            }
+
+            const statusEl = document.getElementById('connection-status');
+            statusEl.innerText = "Triggering Cloud Engine...";
+            statusEl.className = "mt-2 text-xs font-mono text-amber-400";
+
+            try {
+                // Tries main.yml first, and automatically falls back to pipeline.yml if needed
+                let response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/actions/workflows/main.yml/dispatches`, {
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/vnd.github+json",
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ ref: "main" }) 
+                });
+
+                if (response.status === 404) {
+                    response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/actions/workflows/pipeline.yml/dispatches`, {
+                        method: "POST",
+                        headers: {
+                            "Accept": "application/vnd.github+json",
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ ref: "main" }) 
+                    });
+                }
+
+                if (response.ok || response.status === 204) {
+                    alert("✅ EUR/USD Dual Engine (30M & 4H) has been force-started!\n\nPlease wait about 60 seconds, then tap 'Refresh Data'.");
+                    statusEl.innerText = "Live Dual Dashboard Active - Connected";
+                    statusEl.className = "mt-2 text-xs font-mono text-emerald-400";
+                } else {
+                    const errData = await response.json();
+                    if (response.status === 401 || response.status === 404 || response.status === 403) {
+                        localStorage.removeItem("github_pat");
+                        localStorage.removeItem("github_pat_us30");
+                        alert(`❌ Token needs permission for ${GITHUB_REPO} (or is expired). I cleared it from memory so you can paste a new one.`);
+                    } else {
+                        alert("Error: " + errData.message);
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Network error. Could not reach GitHub API.");
+            }
+        }
+
+        fetchData();
+        setInterval(fetchData, 300000);
+    </script>
 </body>
 </html>
