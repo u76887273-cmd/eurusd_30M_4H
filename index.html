@@ -24,7 +24,7 @@
                 <div id="connection-status" class="mt-2 text-xs font-mono text-yellow-400">Connecting to database...</div>
             </div>
 
-            <!-- Live Price & Time -->
+            <!-- Live Price & Time (No Seconds, 4 Decimals) -->
             <div class="flex items-center gap-6 border-y sm:border-y-0 sm:border-x border-slate-700 py-3 sm:py-0 sm:px-6">
                 <div class="text-center">
                     <p class="text-[11px] text-slate-400 uppercase tracking-wide">Latest 5M Run</p>
@@ -76,7 +76,7 @@
                     </div>
                 </div>
 
-                <!-- Clean Equilibrium Target (TP) — No -40 / +40 -->
+                <!-- Clean Equilibrium Target (TP) — Matches EQ 100% -->
                 <div class="text-center pt-4 border-t border-slate-700">
                     <p class="text-xs text-sky-400 uppercase tracking-wider mb-3">30M Equilibrium Target (TP)</p>
                     <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 shadow-inner">
@@ -113,7 +113,7 @@
                     </div>
                 </div>
 
-                <!-- Clean Equilibrium Target (TP) — No -40 / +40 -->
+                <!-- Clean Equilibrium Target (TP) — Matches EQ 100% -->
                 <div class="text-center pt-4 border-t border-slate-700">
                     <p class="text-xs text-sky-400 uppercase tracking-wider mb-3">4H Equilibrium Target (TP)</p>
                     <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 shadow-inner">
@@ -145,6 +145,12 @@
             ? window.location.hostname.split(".")[0] 
             : "u76887273-cmd"; 
         const GITHUB_REPO = window.location.pathname.split("/")[1] || "eurusd_30M_4H"; 
+
+        // Helper: Format any price number in a string to 4 decimals
+        function formatPricesTo4Decimals(str) {
+            if (!str) return "--";
+            return str.replace(/\b(\d+\.\d{4,5})\b/g, (match) => Number(match).toFixed(4));
+        }
 
         function updateDxyArrow(rawReason) {
             if (!rawReason) return;
@@ -183,11 +189,19 @@
             }
 
             const rawReason = row.reason || "Autonomous Execution";
-            const cleanReason = rawReason.replace(/\|\s*DXY:.*$/i, "").trim();
+
+            // Extract EQ from reason if present so EQ and Equilibrium Target (TP) are ALWAYS 100% identical
+            const eqMatch = rawReason.match(/EQ:\s*([0-9.]+)/i);
+            const eqValue = eqMatch ? Number(eqMatch[1]) : (row.take_profit ? Number(row.take_profit) : null);
+            const eqFormatted = eqValue !== null ? eqValue.toFixed(4) : "--";
+
+            let cleanReason = rawReason.replace(/\|\s*DXY:.*$/i, "").trim();
+            cleanReason = cleanReason.replace(/EQ:\s*[0-9.]+/i, `EQ:${eqFormatted}`);
+
             document.getElementById(`reason-val-${tf}`).innerText = cleanReason;
             document.getElementById(`status-${tf}`).innerText = `Status: ${row.status || 'ACTIVE'} (#${row.id})`;
 
-            const zoneText = row.entry_zone || "-";
+            const zoneText = formatPricesTo4Decimals(row.entry_zone || "-");
             if (zoneText.includes("|")) {
                 const parts = zoneText.split("|");
                 document.getElementById(`buy-zone-${tf}`).innerText = parts[0].replace("B:", "").trim();
@@ -203,15 +217,11 @@
                 document.getElementById(`sell-zone-${tf}`).innerText = zoneText;
             }
 
-            if (row.take_profit) {
-                document.getElementById(`tp-val-${tf}`).innerText = Number(row.take_profit).toFixed(5);
-            } else {
-                document.getElementById(`tp-val-${tf}`).innerText = "--";
-            }
+            // Equilibrium Target (TP) box displays the exact same 4-decimal EQ value
+            document.getElementById(`tp-val-${tf}`).innerText = eqFormatted;
         }
 
         async function fetchTableLatest(tableName) {
-            // Order by id.desc (always newest 5-min run) with no-store fetch option
             const url = `${SUPABASE_URL}/rest/v1/${tableName}?select=*&order=id.desc&limit=1`;
             const response = await fetch(url, {
                 cache: 'no-store',
@@ -244,9 +254,11 @@
                     hasData = true;
                     const row30 = data30m[0];
                     const runTime = new Date(row30.created_at || row30.timestamp);
-                    document.getElementById('time-val').innerText = runTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    // Time formatted WITHOUT seconds
+                    document.getElementById('time-val').innerText = runTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     document.getElementById('run-id-val').innerText = `Run #${row30.id} • ${runTime.toLocaleDateString()}`;
-                    document.getElementById('price-val').innerText = Number(row30.price).toFixed(5);
+                    // Price formatted to 4 decimals
+                    document.getElementById('price-val').innerText = Number(row30.price).toFixed(4);
                     renderTimeframeCard("30m", row30);
                     updateDxyArrow(row30.reason);
                 }
@@ -256,16 +268,17 @@
                     const row4h = data4h[0];
                     if (!data30m || data30m.length === 0) {
                         const runTime = new Date(row4h.created_at || row4h.timestamp);
-                        document.getElementById('time-val').innerText = runTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        document.getElementById('time-val').innerText = runTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         document.getElementById('run-id-val').innerText = `Run #${row4h.id} • ${runTime.toLocaleDateString()}`;
-                        document.getElementById('price-val').innerText = Number(row4h.price).toFixed(5);
+                        document.getElementById('price-val').innerText = Number(row4h.price).toFixed(4);
                         updateDxyArrow(row4h.reason);
                     }
                     renderTimeframeCard("4h", row4h);
                 }
 
                 if (hasData) {
-                    statusEl.innerText = `Live Dual Dashboard Active • Checked ${new Date().toLocaleTimeString()}`;
+                    const nowShort = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    statusEl.innerText = `Live Dual Dashboard Active • Checked ${nowShort}`;
                     statusEl.className = "mt-2 text-xs font-mono text-emerald-400";
                 } else {
                     statusEl.innerText = "Connected - Waiting for first engine run...";
