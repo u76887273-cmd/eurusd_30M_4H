@@ -27,8 +27,9 @@
             <!-- Live Price & Time -->
             <div class="flex items-center gap-6 border-y sm:border-y-0 sm:border-x border-slate-700 py-3 sm:py-0 sm:px-6">
                 <div class="text-center">
-                    <p class="text-[11px] text-slate-400 uppercase tracking-wide">Latest Update</p>
+                    <p class="text-[11px] text-slate-400 uppercase tracking-wide">Latest 5M Run</p>
                     <p id="time-val" class="text-sm font-mono font-semibold text-slate-200 mt-1">--</p>
+                    <p id="run-id-val" class="text-[10px] font-mono text-sky-400 mt-0.5">Run #--</p>
                 </div>
                 <div class="text-center">
                     <p class="text-[11px] text-slate-400 uppercase tracking-wide">Current Price</p>
@@ -37,7 +38,7 @@
             </div>
 
             <!-- Side US Dollar Index (#US$idx) Direction Arrow -->
-            <div class="bg-slate-900/80 border border-slate-700 rounded-xl px-5 py-3 text-center min-w-[180px]">
+            <div class="bg-slate-900/80 border border-slate-700 rounded-xl px-5 py-3 text-center min-w-[190px]">
                 <p class="text-[10px] text-slate-400 uppercase tracking-widest mb-1">US$ Index (#US$idx)</p>
                 <div id="dxy-arrow" class="text-2xl font-extrabold font-mono text-slate-400">► WAIT</div>
                 <p id="dxy-sub" class="text-[11px] font-mono text-slate-500 mt-0.5">15M Momentum</p>
@@ -143,7 +144,7 @@
         const GITHUB_USERNAME = window.location.hostname.includes("github.io") 
             ? window.location.hostname.split(".")[0] 
             : "u76887273-cmd"; 
-        const GITHUB_REPO = window.location.pathname.split("/")[1] || "EURUSD-Quantum-"; 
+        const GITHUB_REPO = window.location.pathname.split("/")[1] || "eurusd_30M_4H"; 
 
         function updateDxyArrow(rawReason) {
             if (!rawReason) return;
@@ -184,7 +185,7 @@
             const rawReason = row.reason || "Autonomous Execution";
             const cleanReason = rawReason.replace(/\|\s*DXY:.*$/i, "").trim();
             document.getElementById(`reason-val-${tf}`).innerText = cleanReason;
-            document.getElementById(`status-30m` === `status-${tf}` ? `status-${tf}` : `status-4h`).innerText = `Status: ${row.status || 'ACTIVE'}`;
+            document.getElementById(`status-${tf}`).innerText = `Status: ${row.status || 'ACTIVE'} (#${row.id})`;
 
             const zoneText = row.entry_zone || "-";
             if (zoneText.includes("|")) {
@@ -210,10 +211,15 @@
         }
 
         async function fetchTableLatest(tableName) {
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/${tableName}?select=*&order=timestamp.desc&limit=1`, {
+            // Order by id.desc (always newest 5-min run) + cache-buster so Safari never caches old data
+            const url = `${SUPABASE_URL}/rest/v1/${tableName}?select=*&order=id.desc&limit=1&_t=${Date.now()}`;
+            const response = await fetch(url, {
+                cache: 'no-store',
                 headers: {
                     'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
                 }
             });
             if (!response.ok) {
@@ -225,7 +231,7 @@
 
         async function fetchData() {
             const statusEl = document.getElementById('connection-status');
-            statusEl.innerText = "Fetching latest 30M & 4H signals...";
+            statusEl.innerText = "Syncing latest 5M run from Supabase...";
             statusEl.className = "mt-2 text-xs font-mono text-yellow-400";
 
             try {
@@ -239,8 +245,10 @@
                 if (data30m && data30m.length > 0) {
                     hasData = true;
                     const row30 = data30m[0];
-                    const date = new Date(row30.timestamp);
-                    document.getElementById('time-val').innerText = date.toLocaleString();
+                    // Prefer created_at so the clock advances every 5 minutes even inside the same 30m candle
+                    const runTime = new Date(row30.created_at || row30.timestamp);
+                    document.getElementById('time-val').innerText = runTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    document.getElementById('run-id-val').innerText = `Run #${row30.id} • ${runTime.toLocaleDateString()}`;
                     document.getElementById('price-val').innerText = Number(row30.price).toFixed(5);
                     renderTimeframeCard("30m", row30);
                     updateDxyArrow(row30.reason);
@@ -250,8 +258,9 @@
                     hasData = true;
                     const row4h = data4h[0];
                     if (!data30m || data30m.length === 0) {
-                        const date = new Date(row4h.timestamp);
-                        document.getElementById('time-val').innerText = date.toLocaleString();
+                        const runTime = new Date(row4h.created_at || row4h.timestamp);
+                        document.getElementById('time-val').innerText = runTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        document.getElementById('run-id-val').innerText = `Run #${row4h.id} • ${runTime.toLocaleDateString()}`;
                         document.getElementById('price-val').innerText = Number(row4h.price).toFixed(5);
                         updateDxyArrow(row4h.reason);
                     }
@@ -259,7 +268,7 @@
                 }
 
                 if (hasData) {
-                    statusEl.innerText = "Live Dual Dashboard Active - Connected";
+                    statusEl.innerText = `Live Dual Dashboard Active • Checked ${new Date().toLocaleTimeString()}`;
                     statusEl.className = "mt-2 text-xs font-mono text-emerald-400";
                 } else {
                     statusEl.innerText = "Connected - Waiting for first engine run...";
@@ -273,7 +282,6 @@
         }
 
         async function forceRun() {
-            // Reuses the exact same token saved in Safari from your US30 / JP225 dashboards
             let token = localStorage.getItem("github_pat") || localStorage.getItem("github_pat_us30");
             
             if (!token) {
@@ -287,7 +295,6 @@
             statusEl.className = "mt-2 text-xs font-mono text-amber-400";
 
             try {
-                // Tries main.yml first, and automatically falls back to pipeline.yml if needed
                 let response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/actions/workflows/main.yml/dispatches`, {
                     method: "POST",
                     headers: {
@@ -311,9 +318,9 @@
                 }
 
                 if (response.ok || response.status === 204) {
-                    alert("✅ EUR/USD Dual Engine (30M & 4H) has been force-started!\n\nPlease wait about 60 seconds, then tap 'Refresh Data'.");
-                    statusEl.innerText = "Live Dual Dashboard Active - Connected";
-                    statusEl.className = "mt-2 text-xs font-mono text-emerald-400";
+                    alert("✅ EUR/USD Dual Engine (30M & 4H) has been force-started!\n\nIt will finish in ~40 seconds and appear automatically.");
+                    statusEl.innerText = "Engine Running in Cloud... Auto-refreshing every 30s";
+                    statusEl.className = "mt-2 text-xs font-mono text-amber-400";
                 } else {
                     const errData = await response.json();
                     if (response.status === 401 || response.status === 404 || response.status === 403) {
@@ -331,7 +338,8 @@
         }
 
         fetchData();
-        setInterval(fetchData, 300000);
+        // Auto-refresh every 30 seconds so every 5-min run shows up immediately
+        setInterval(fetchData, 30000);
     </script>
 </body>
 </html>
