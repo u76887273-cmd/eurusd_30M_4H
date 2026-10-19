@@ -211,15 +211,13 @@
         }
 
         async function fetchTableLatest(tableName) {
-            // Order by id.desc (always newest 5-min run) + cache-buster so Safari never caches old data
-            const url = `${SUPABASE_URL}/rest/v1/${tableName}?select=*&order=id.desc&limit=1&_t=${Date.now()}`;
+            // Order by id.desc (always newest 5-min run) with no-store fetch option
+            const url = `${SUPABASE_URL}/rest/v1/${tableName}?select=*&order=id.desc&limit=1`;
             const response = await fetch(url, {
                 cache: 'no-store',
                 headers: {
                     'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache'
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
                 }
             });
             if (!response.ok) {
@@ -245,7 +243,6 @@
                 if (data30m && data30m.length > 0) {
                     hasData = true;
                     const row30 = data30m[0];
-                    // Prefer created_at so the clock advances every 5 minutes even inside the same 30m candle
                     const runTime = new Date(row30.created_at || row30.timestamp);
                     document.getElementById('time-val').innerText = runTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     document.getElementById('run-id-val').innerText = `Run #${row30.id} • ${runTime.toLocaleDateString()}`;
@@ -338,7 +335,6 @@
         }
 
         fetchData();
-        // Auto-refresh every 30 seconds so every 5-min run shows up immediately
         setInterval(fetchData, 30000);
     </script>
 </body>
