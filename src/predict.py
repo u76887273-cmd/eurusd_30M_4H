@@ -1,4 +1,5 @@
 import os
+import datetime
 import joblib
 import psycopg
 import yfinance as yf
@@ -21,8 +22,8 @@ CONFIG = {
 }
 
 def get_dxy_direction():
-    """Fetches live US Dollar Index (DX=F / DX-Y.NYB) 15m trend."""
-    for ticker in ["DX=F", "DX-Y.NYB"]:
+    """Fetches live US Dollar Index (DX-Y.NYB) 15m trend without DX=F 404 errors."""
+    for ticker in ["DX-Y.NYB", "UUP"]:
         try:
             data = yf.download(ticker, period="2d", interval="15m", progress=False)
             if not data.empty and len(data) >= 2:
@@ -79,7 +80,7 @@ def predict_for_timeframe(conn, tf, dxy_tag):
 
     signal = "BUY" if prob_up >= 0.52 else ("SELL" if prob_up <= 0.48 else "NEUTRAL")
 
-    # Calculate clean 5-decimal Target & Entry Zone (No -40/+40 index offsets)
+    # Calculate 5-decimal Target & Entry Zones (No -40/+40 offsets)
     step = max(atr * 1.2, cfg["min_target_pips"])
     if signal == "BUY":
         take_profit = round(max(eq_ema, price + step), 5)
@@ -88,11 +89,21 @@ def predict_for_timeframe(conn, tf, dxy_tag):
     else:
         take_profit = round(eq_ema, 5)
 
-    z_low = round(price - cfg["zone_half_width"], 5)
-    z_high = round(price + cfg["zone_half_width"], 5)
-    entry_zone = f"{z_low:.5f} - {z_high:.5f}"
+    w = cfg["zone_half_width"]
+    buy_low = round(price - (w * 2), 5)
+    buy_high = round(price - (w * 0.5), 5)
+    sell_low = round(price + (w * 0.5), 5)
+    sell_high = round(price + (w * 2), 5)
+
+    if signal == "BUY":
+        entry_zone = f"B: {buy_low:.5f} - { price:.5f} | S: WAITING"
+    elif signal == "SELL":
+        entry_zone = f"B: WAITING | S: {price:.5f} - {sell_high:.5f}"
+    else:
+        entry_zone = f"B: {buy_low:.5f} - {buy_high:.5f} | S: {sell_low:.5f} - {sell_high:.5f}"
 
     reason = f"Prob:{prob_up*100:.1f}% | RSI:{rsi:.1f} | EQ:{eq_ema:.5f} | {dxy_tag}"
+    run_ts = datetime.datetime.now(datetime.timezone.utc)
 
     init_db_table(conn, cfg["table"])
 
@@ -100,7 +111,7 @@ def predict_for_timeframe(conn, tf, dxy_tag):
         cur.execute(f"""
             INSERT INTO {cfg['table']} (timestamp, price, signal, reason, entry_zone, entry, take_profit, status)
             VALUES (%s, %s, %s, %s, %s, %s, %s, 'ACTIVE')
-        """, (latest["timestamp"], price, signal, reason, entry_zone, price, take_profit))
+        """, (run_ts, price, signal, reason, entry_zone, price, take_profit))
     conn.commit()
     print(f"[{tf.upper()}] Logged {signal} @ {price:.5f} -> TP: {take_profit:.5f} ({dxy_tag})")
 
