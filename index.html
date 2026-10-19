@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EUR/USD Quantum Supreme — 30M & 4H Live Engine</title>
+  <title>EUR/USD Quantum Supreme — 30M & 4H Unified Engine</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
-      --bg: #0b0f19;
-      --card: #131b2e;
-      --border: #1e293b;
-      --text: #f8fafc;
-      --muted: #94a3b8;
+      --bg: #070b14;
+      --card: #111827;
+      --border: #1f2937;
+      --text: #f9fafb;
+      --muted: #9ca3af;
       --green: #10b981;
       --red: #ef4444;
       --accent: #38bdf8;
@@ -23,222 +23,253 @@
       color: var(--text);
       padding: 16px;
     }
-    /* Header with Side DXY Indicator */
-    .top-bar {
+
+    /* Main Layout: Dual Engine + Side US$ Index Arrow Panel */
+    .top-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 14px 20px;
+      padding: 16px 20px;
       margin-bottom: 18px;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 14px;
     }
-    .title-block h1 { font-size: 1.35rem; letter-spacing: 0.5px; }
-    .title-block span { font-size: 0.85rem; color: var(--muted); }
-    .dxy-widget {
+    .brand h1 { font-size: 1.35rem; letter-spacing: 0.6px; color: #fff; }
+    .brand p { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+
+    /* Glowing US Dollar Index (#US$idx) Side Box */
+    .dxy-side-card {
       display: flex;
       align-items: center;
-      gap: 12px;
-      background: rgba(15, 23, 42, 0.85);
+      gap: 14px;
+      background: #0b1120;
       border: 1px solid var(--border);
-      padding: 10px 16px;
+      padding: 10px 18px;
       border-radius: 10px;
     }
-    .dxy-label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; }
-    .dxy-arrow { font-size: 1.15rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; }
-    .dxy-up { color: var(--green); background: rgba(16, 185, 129, 0.15); box-shadow: 0 0 12px rgba(16, 185, 129, 0.3); }
-    .dxy-down { color: var(--red); background: rgba(239, 68, 68, 0.15); box-shadow: 0 0 12px rgba(239, 68, 68, 0.3); }
+    .dxy-meta { text-align: right; }
+    .dxy-title { font-size: 0.76rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .dxy-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; font-family: monospace; }
+    .dxy-arrow-badge {
+      font-size: 1.15rem;
+      font-weight: 800;
+      padding: 6px 14px;
+      border-radius: 8px;
+      letter-spacing: 0.5px;
+      transition: all 0.3s ease;
+    }
+    .dxy-up {
+      color: var(--green);
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
+    }
+    .dxy-down {
+      color: var(--red);
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      box-shadow: 0 0 14px rgba(239, 68, 68, 0.35);
+    }
+    .dxy-flat {
+      color: var(--muted);
+      background: rgba(156, 163, 175, 0.12);
+      border: 1px solid var(--border);
+    }
 
-    /* Dual Timeframe Split Screen */
-    .dual-grid {
+    /* Side-by-Side 30M and 4H Grid */
+    .engine-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 18px;
     }
-    @media (max-width: 960px) {
-      .dual-grid { grid-template-columns: 1fr; }
+    @media (max-width: 980px) {
+      .engine-grid { grid-template-columns: 1fr; }
     }
-    .panel {
+
+    .tf-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px;
     }
-    .panel-header {
+    .tf-top {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid var(--border);
       padding-bottom: 12px;
       margin-bottom: 14px;
+      border-bottom: 1px solid var(--border);
     }
-    .tf-badge {
-      background: rgba(56, 189, 248, 0.15);
+    .tf-tag {
+      background: rgba(56, 189, 248, 0.14);
       color: var(--accent);
-      padding: 4px 10px;
+      padding: 5px 12px;
       border-radius: 6px;
       font-weight: 700;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
     }
-    /* Hero Metrics (Clean: Price, Entry Zone, Take Profit — NO -40/+40) */
-    .metrics-row {
+    .win-rate { font-size: 0.8rem; color: var(--muted); font-family: monospace; }
+
+    /* Clean 3-Box Row (No -40 / +40 clutter) */
+    .hero-stats {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 10px;
       margin-bottom: 16px;
     }
-    .metric-box {
-      background: rgba(15, 23, 42, 0.6);
+    .stat-box {
+      background: #0b1120;
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 10px;
+      padding: 12px 8px;
       text-align: center;
     }
-    .metric-box .lbl { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
-    .metric-box .val { font-size: 1.05rem; font-weight: 700; font-family: monospace; }
+    .stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; margin-bottom: 5px; }
+    .stat-value { font-size: 1.05rem; font-weight: 700; font-family: monospace; color: #fff; }
 
-    .sig-pill { padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; }
-    .BUY { background: rgba(16, 185, 129, 0.2); color: var(--green); }
-    .SELL { background: rgba(239, 68, 68, 0.2); color: var(--red); }
-    .NEUTRAL { background: rgba(148, 163, 184, 0.2); color: var(--muted); }
+    .sig-badge { padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; }
+    .BUY { background: rgba(16, 185, 129, 0.2); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.35); }
+    .SELL { background: rgba(239, 68, 68, 0.2); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.35); }
+    .NEUTRAL { background: rgba(156, 163, 175, 0.15); color: var(--muted); }
 
-    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    th, td { padding: 9px 8px; text-align: left; border-bottom: 1px solid var(--border); font-family: monospace; }
-    th { color: var(--muted); font-family: sans-serif; font-weight: 600; }
-    .status-HIT_TP { color: var(--green); font-weight: 700; }
-    .status-ACTIVE { color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    th, td { padding: 9px 6px; text-align: left; border-bottom: 1px solid var(--border); font-family: monospace; }
+    th { color: var(--muted); font-family: sans-serif; font-weight: 600; font-size: 0.76rem; text-transform: uppercase; }
+    .HIT_TP { color: var(--green); font-weight: 700; }
+    .ACTIVE { color: var(--accent); }
   </style>
 </head>
 <body>
 
-  <div class="top-bar">
-    <div class="title-block">
+  <div class="top-header">
+    <div class="brand">
       <h1>EUR/USD QUANTUM SUPREME</h1>
-      <span id="last-sync">Auto-Syncing Every 5 Minutes (30M & 4H Unified Engine)</span>
+      <p id="sync-status">5-Minute Autonomous Cycle • Dual 30M & 4H Grid Engine</p>
     </div>
 
-    <!-- Side US Dollar Index (#US$idx) Direction Indicator -->
-    <div class="dxy-widget">
-      <div>
-        <div class="dxy-label">US$ Index (#US$idx) 15M</div>
-        <div id="dxy-sub" style="font-size:0.75rem; color:var(--muted);">Inverse to EUR/USD</div>
+    <!-- Side US Dollar Index (#US$idx) Momentum Indicator -->
+    <div class="dxy-side-card">
+      <div class="dxy-meta">
+        <div class="dxy-title">US$ Index (#US$idx) 15M</div>
+        <div id="dxy-details" class="dxy-sub">Syncing live DXY...</div>
       </div>
-      <div id="dxy-arrow" class="dxy-arrow">WAITING...</div>
+      <div id="dxy-arrow" class="dxy-arrow-badge dxy-flat">► FLAT</div>
     </div>
   </div>
 
-  <div class="dual-grid">
-    <!-- 30-MINUTE PANEL -->
-    <div class="panel">
-      <div class="panel-header">
-        <div>
-          <span class="tf-badge">30-MINUTE (M30)</span>
-        </div>
-        <span id="sig-30m" class="sig-pill NEUTRAL">LOADING</span>
+  <div class="engine-grid">
+    <!-- 30-MINUTE ENGINE -->
+    <div class="tf-card">
+      <div class="tf-top">
+        <span class="tf-tag">30-MINUTE (M30)</span>
+        <span id="stats-30m" class="win-rate">Active: 0 | Hit TP: 0</span>
+        <span id="sig-30m" class="sig-badge NEUTRAL">--</span>
       </div>
-      <div class="metrics-row">
-        <div class="metric-box">
-          <div class="lbl">LIVE EUR/USD</div>
-          <div id="price-30m" class="val">--</div>
+      <div class="hero-stats">
+        <div class="stat-box">
+          <div class="stat-label">Live Price</div>
+          <div id="price-30m" class="stat-value">--</div>
         </div>
-        <div class="metric-box">
-          <div class="lbl">ENTRY ZONE</div>
-          <div id="zone-30m" class="val">--</div>
+        <div class="stat-box">
+          <div class="stat-label">Entry Zone</div>
+          <div id="zone-30m" class="stat-value">--</div>
         </div>
-        <div class="metric-box">
-          <div class="lbl">TAKE PROFIT (EQ)</div>
-          <div id="tp-30m" class="val">--</div>
+        <div class="stat-box">
+          <div class="stat-label">Target (TP)</div>
+          <div id="tp-30m" class="stat-value">--</div>
         </div>
       </div>
       <table>
         <thead>
           <tr>
-            <th>Time (UTC)</th>
+            <th>Time</th>
             <th>Signal</th>
             <th>Entry</th>
-            <th>Target (TP)</th>
+            <th>Target</th>
             <th>Status</th>
           </tr>
         </thead>
-        <tbody id="logs-30m"></tbody>
+        <tbody id="tbody-30m"></tbody>
       </table>
     </div>
 
-    <!-- 4-HOUR PANEL -->
-    <div class="panel">
-      <div class="panel-header">
-        <div>
-          <span class="tf-badge">4-HOUR (H4)</span>
-        </div>
-        <span id="sig-4h" class="sig-pill NEUTRAL">LOADING</span>
+    <!-- 4-HOUR ENGINE -->
+    <div class="tf-card">
+      <div class="tf-top">
+        <span class="tf-tag">4-HOUR (H4)</span>
+        <span id="stats-4h" class="win-rate">Active: 0 | Hit TP: 0</span>
+        <span id="sig-4h" class="sig-badge NEUTRAL">--</span>
       </div>
-      <div class="metrics-row">
-        <div class="metric-box">
-          <div class="lbl">LIVE EUR/USD</div>
-          <div id="price-4h" class="val">--</div>
+      <div class="hero-stats">
+        <div class="stat-box">
+          <div class="stat-label">Live Price</div>
+          <div id="price-4h" class="stat-value">--</div>
         </div>
-        <div class="metric-box">
-          <div class="lbl">ENTRY ZONE</div>
-          <div id="zone-4h" class="val">--</div>
+        <div class="stat-box">
+          <div class="stat-label">Entry Zone</div>
+          <div id="zone-4h" class="stat-value">--</div>
         </div>
-        <div class="metric-box">
-          <div class="lbl">TAKE PROFIT (EQ)</div>
-          <div id="tp-4h" class="val">--</div>
+        <div class="stat-box">
+          <div class="stat-label">Target (TP)</div>
+          <div id="tp-4h" class="stat-value">--</div>
         </div>
       </div>
       <table>
         <thead>
           <tr>
-            <th>Time (UTC)</th>
+            <th>Time</th>
             <th>Signal</th>
             <th>Entry</th>
-            <th>Target (TP)</th>
+            <th>Target</th>
             <th>Status</th>
           </tr>
         </thead>
-        <tbody id="logs-4h"></tbody>
+        <tbody id="tbody-4h"></tbody>
       </table>
     </div>
   </div>
 
   <script>
-    // Replace with your Supabase Project URL and Anon Key
-    const SUPABASE_URL = "YOUR_SUPABASE_URL";
-    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Pre-configured with your existing Supabase URL
+    const SUPABASE_URL = "https://nabjqvmgytcnlezyxnly.supabase.co";
+    // Paste your same eyJ... anon key from your US30 index.html below:
+    const SUPABASE_ANON_KEY = "PASTE_YOUR_SAME_SUPABASE_ANON_KEY_HERE";
 
-    function updateDxyArrow(reasonStr) {
-      if (!reasonStr) return;
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    function renderDxyIndicator(reason) {
+      if (!reason) return;
       const arrowEl = document.getElementById("dxy-arrow");
-      const subEl = document.getElementById("dxy-sub");
-      const dxyMatch = reasonStr.match(/DXY:(UP|DOWN|FLAT)\s*(\([^)]+\))?/);
-      if (dxyMatch) {
-        const dir = dxyMatch[1];
-        const details = dxyMatch[2] || "";
-        if (dir === "UP") {
-          arrowEl.className = "dxy-arrow dxy-up";
-          arrowEl.textContent = "▲ USD UP";
-          subEl.textContent = details + " (Bearish EURUSD)";
-        } else if (dir === "DOWN") {
-          arrowEl.className = "dxy-arrow dxy-down";
-          arrowEl.textContent = "▼ USD DOWN";
-          subEl.textContent = details + " (Bullish EURUSD)";
-        } else {
-          arrowEl.className = "dxy-arrow";
-          arrowEl.textContent = "► USD FLAT";
-        }
+      const detailEl = document.getElementById("dxy-details");
+      const match = reason.match(/DXY:(UP|DOWN|FLAT)\s*(\([^)]+\))?/);
+      if (!match) return;
+
+      const dir = match[1];
+      const info = match[2] || "";
+      if (dir === "UP") {
+        arrowEl.className = "dxy-arrow-badge dxy-up";
+        arrowEl.textContent = "▲ USD UP";
+        detailEl.textContent = `${info} • EUR/USD Pressure ▼`;
+      } else if (dir === "DOWN") {
+        arrowEl.className = "dxy-arrow-badge dxy-down";
+        arrowEl.textContent = "▼ USD DOWN";
+        detailEl.textContent = `${info} • EUR/USD Support ▲`;
+      } else {
+        arrowEl.className = "dxy-arrow-badge dxy-flat";
+        arrowEl.textContent = "► USD FLAT";
+        detailEl.textContent = info || "Neutral Dollar Flow";
       }
     }
 
-    async function loadTimeframe(tf, tableName) {
-      const { data, error } = await supabaseClient
+    async function fetchPanel(tf, tableName) {
+      const { data, error } = await db
         .from(tableName)
         .select("*")
         .order("id", { ascending: false })
-        .limit(12);
+        .limit(15);
 
       if (error || !data || data.length === 0) return;
 
@@ -249,36 +280,40 @@
 
       const sigEl = document.getElementById(`sig-${tf}`);
       sigEl.textContent = latest.signal;
-      sigEl.className = `sig-pill ${latest.signal}`;
+      sigEl.className = `sig-badge ${latest.signal}`;
 
-      if (tf === "30m") updateDxyArrow(latest.reason);
+      const hitCount = data.filter(r => r.status === "HIT_TP").length;
+      const activeCount = data.filter(r => r.status === "ACTIVE").length;
+      document.getElementById(`stats-${tf}`).textContent = `Active: ${activeCount} | Hit TP: ${hitCount}`;
 
-      const tbody = document.getElementById(`logs-${tf}`);
-      tbody.innerHTML = data.map(row => {
-        const t = new Date(row.created_at || row.timestamp).toISOString().slice(11, 16);
+      if (tf === "30m") renderDxyIndicator(latest.reason);
+
+      const tbody = document.getElementById(`tbody-${tf}`);
+      tbody.innerHTML = data.map(r => {
+        const timeStr = new Date(r.created_at || r.timestamp).toISOString().slice(11, 16);
         return `
           <tr>
-            <td>${t}</td>
-            <td><span class="sig-pill ${row.signal}">${row.signal}</span></td>
-            <td>${Number(row.entry).toFixed(5)}</td>
-            <td>${Number(row.take_profit).toFixed(5)}</td>
-            <td class="status-${row.status}">${row.status}</td>
+            <td>${timeStr}</td>
+            <td><span class="sig-badge ${r.signal}">${r.signal}</span></td>
+            <td>${Number(r.entry).toFixed(5)}</td>
+            <td>${Number(r.take_profit).toFixed(5)}</td>
+            <td class="${r.status}">${r.status}</td>
           </tr>
         `;
       }).join("");
     }
 
-    async function refreshAll() {
+    async function syncDashboard() {
       await Promise.all([
-        loadTimeframe("30m", "eurusd_grid_log_30m"),
-        loadTimeframe("4h", "eurusd_grid_log_4h")
+        fetchPanel("30m", "eurusd_grid_log_30m"),
+        fetchPanel("4h", "eurusd_grid_log_4h")
       ]);
-      document.getElementById("last-sync").textContent =
-        "Last synced: " + new Date().toLocaleTimeString();
+      document.getElementById("sync-status").textContent =
+        "5-Minute Autonomous Cycle • Last Synced: " + new Date().toLocaleTimeString();
     }
 
-    refreshAll();
-    setInterval(refreshAll, 30000);
+    syncDashboard();
+    setInterval(syncDashboard, 30000);
   </script>
 </body>
 </html>
