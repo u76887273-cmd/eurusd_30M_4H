@@ -48,7 +48,7 @@ def init_db_table(conn, table_name):
         """)
     conn.commit()
 
-def predict_for_timeframe(conn, df_feat, tf, dxy_tag):
+def predict_for_timeframe(conn, raw_df, tf, dxy_tag):
     model_path = f"model_{tf}.pkl"
     table_name = TABLES[tf]
 
@@ -56,6 +56,8 @@ def predict_for_timeframe(conn, df_feat, tf, dxy_tag):
         print(f"[{tf.upper()}] Model file {model_path} missing.")
         return
 
+    # Build timeframe-specific features so 30m and 4h each have their own true RSI & EMAs
+    df_feat = build_features(raw_df, tf).dropna().reset_index(drop=True)
     models = joblib.load(model_path)
     latest_row = df_feat.iloc[[-1]]
     X_latest = latest_row[FEATURES]
@@ -74,7 +76,7 @@ def predict_for_timeframe(conn, df_feat, tf, dxy_tag):
     # Equilibrium (Midline of AI Projected Range)
     midline_eq = (proj_high + proj_low) / 2.0
 
-    # Pure Midline Rule (0.6 condition removed)
+    # Pure Midline Rule
     if price < midline_eq:
         signal = "BUY"
     elif price > midline_eq:
@@ -114,7 +116,7 @@ def predict_for_timeframe(conn, df_feat, tf, dxy_tag):
             VALUES (%s, %s, %s, %s, %s, %s, %s, 'ACTIVE')
         """, (run_ts, price_4d, signal, reason, entry_zone, price_4d, eq_4d))
     conn.commit()
-    print(f"[{tf.upper()}] {signal} @ {price_4d:.4f} | EQ/TP: {eq_4d:.4f} | Zone: {entry_zone}")
+    print(f"[{tf.upper()}] {signal} @ {price_4d:.4f} | RSI: {rsi:.1f} | EQ/TP: {eq_4d:.4f}")
 
 if __name__ == "__main__":
     if not os.path.exists("data_m5.csv"):
@@ -123,7 +125,6 @@ if __name__ == "__main__":
         dxy_status = get_dxy_direction()
         print(f"Live US Dollar Index Status: {dxy_status}")
         raw_df = pd.read_csv("data_m5.csv")
-        df_feat = build_features(raw_df).dropna().reset_index(drop=True)
         with psycopg.connect(DB_URL) as conn:
             for tf in ["30m", "4h"]:
-                predict_for_timeframe(conn, df_feat, tf, dxy_status)
+                predict_for_timeframe(conn, raw_df, tf, dxy_status)
