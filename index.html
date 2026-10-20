@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EUR/USD Quantum Supreme (30M & 4H)</title>
+    <title>EUR/USD (30M & 4H)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
@@ -16,24 +16,21 @@
 <body class="min-h-screen flex flex-col items-center p-4 sm:p-8">
 
     <div class="max-w-5xl w-full">
-        <!-- Header + Side US$ Index Arrow -->
+        <!-- Header + Last Run Time (H:M) + Current Price + Side US$ Index Arrow -->
         <div class="glass rounded-2xl p-5 mb-6 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="text-center sm:text-left">
-                <h1 class="text-3xl font-bold text-sky-400 glow-text">EUR/USD</h1>
-                <p class="text-xs text-slate-400 uppercase tracking-widest mt-1">Dual 30-Min & 4-Hour Quantum Engine</p>
-                <div id="connection-status" class="mt-2 text-xs font-mono text-yellow-400">Connecting to database...</div>
+                <h1 class="text-4xl font-extrabold text-sky-400 glow-text tracking-tight">EUR/USD</h1>
             </div>
 
-            <!-- Live Price & Time (No Seconds, 4 Decimals) -->
-            <div class="flex items-center gap-6 border-y sm:border-y-0 sm:border-x border-slate-700 py-3 sm:py-0 sm:px-6">
+            <!-- Last Run Time (H:M only) & Current Price -->
+            <div class="flex items-center gap-8 border-y sm:border-y-0 sm:border-x border-slate-700 py-3 sm:py-0 sm:px-8">
                 <div class="text-center">
-                    <p class="text-[11px] text-slate-400 uppercase tracking-wide">Latest 5M Run</p>
-                    <p id="time-val" class="text-sm font-mono font-semibold text-slate-200 mt-1">--</p>
-                    <p id="run-id-val" class="text-[10px] font-mono text-sky-400 mt-0.5">Run #--</p>
+                    <p class="text-[11px] text-slate-400 uppercase tracking-wide">Latest Run</p>
+                    <p id="time-val" class="text-xl font-mono font-semibold text-slate-200 mt-0.5">--:--</p>
                 </div>
                 <div class="text-center">
                     <p class="text-[11px] text-slate-400 uppercase tracking-wide">Current Price</p>
-                    <p id="price-val" class="text-2xl font-mono font-bold text-white">--</p>
+                    <p id="price-val" class="text-3xl font-mono font-bold text-white mt-0.5">--</p>
                 </div>
             </div>
 
@@ -41,7 +38,6 @@
             <div class="bg-slate-900/80 border border-slate-700 rounded-xl px-5 py-3 text-center min-w-[190px]">
                 <p class="text-[10px] text-slate-400 uppercase tracking-widest mb-1">US$ Index (#US$idx)</p>
                 <div id="dxy-arrow" class="text-2xl font-extrabold font-mono text-slate-400">► WAIT</div>
-                <p id="dxy-sub" class="text-[11px] font-mono text-slate-500 mt-0.5">15M Momentum</p>
             </div>
         </div>
 
@@ -50,33 +46,31 @@
 
             <!-- ================= 30-MINUTE (30M) ENGINE ================= -->
             <div class="glass rounded-2xl p-6 shadow-2xl space-y-6">
-                <div class="flex items-center justify-between border-b border-slate-700 pb-4">
+                <div class="flex items-center justify-start border-b border-slate-700 pb-4">
                     <span class="px-3 py-1 bg-sky-500/20 border border-sky-500/40 text-sky-400 rounded-lg text-xs font-bold uppercase tracking-wider">
                         30-Minute (30M)
                     </span>
-                    <span id="status-30m" class="text-xs font-mono text-slate-400">Status: --</span>
                 </div>
 
-                <!-- Signal Area -->
-                <div class="text-center py-6 bg-slate-800/50 rounded-xl border border-slate-700">
+                <!-- Signal Area (Clean — No Bias/RSI/EQ Noise) -->
+                <div class="text-center py-8 bg-slate-800/50 rounded-xl border border-slate-700">
                     <p class="text-xs text-slate-400 uppercase tracking-widest mb-2">30M Final AI Signal</p>
-                    <h2 id="signal-val-30m" class="text-5xl font-extrabold tracking-tight text-white mb-2">WAIT</h2>
-                    <p id="reason-val-30m" class="text-xs font-mono text-slate-400">Waiting for data...</p>
+                    <h2 id="signal-val-30m" class="text-5xl font-extrabold tracking-tight text-white">WAIT</h2>
                 </div>
 
                 <!-- Trade Zones -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="bg-emerald-900/20 border border-emerald-800/50 rounded-xl p-4 text-center">
                         <p class="text-xs text-emerald-400 uppercase tracking-wider mb-1">Buy Limits</p>
-                        <p id="buy-zone-30m" class="font-mono text-sm text-emerald-100">--</p>
+                        <p id="buy-zone-30m" class="font-mono text-base font-semibold text-emerald-100">--</p>
                     </div>
                     <div class="bg-rose-900/20 border border-rose-800/50 rounded-xl p-4 text-center">
                         <p class="text-xs text-rose-400 uppercase tracking-wider mb-1">Sell Limits</p>
-                        <p id="sell-zone-30m" class="font-mono text-sm text-rose-100">--</p>
+                        <p id="sell-zone-30m" class="font-mono text-base font-semibold text-rose-100">--</p>
                     </div>
                 </div>
 
-                <!-- Clean Equilibrium Target (TP) — Matches EQ 100% -->
+                <!-- Equilibrium Target (TP) -->
                 <div class="text-center pt-4 border-t border-slate-700">
                     <p class="text-xs text-sky-400 uppercase tracking-wider mb-3">30M Equilibrium Target (TP)</p>
                     <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 shadow-inner">
@@ -87,33 +81,31 @@
 
             <!-- ================= 4-HOUR (4H) ENGINE ================= -->
             <div class="glass rounded-2xl p-6 shadow-2xl space-y-6">
-                <div class="flex items-center justify-between border-b border-slate-700 pb-4">
+                <div class="flex items-center justify-start border-b border-slate-700 pb-4">
                     <span class="px-3 py-1 bg-purple-500/20 border border-purple-500/40 text-purple-300 rounded-lg text-xs font-bold uppercase tracking-wider">
                         4-Hour (4H)
                     </span>
-                    <span id="status-4h" class="text-xs font-mono text-slate-400">Status: --</span>
                 </div>
 
-                <!-- Signal Area -->
-                <div class="text-center py-6 bg-slate-800/50 rounded-xl border border-slate-700">
+                <!-- Signal Area (Clean — No Bias/RSI/EQ Noise) -->
+                <div class="text-center py-8 bg-slate-800/50 rounded-xl border border-slate-700">
                     <p class="text-xs text-slate-400 uppercase tracking-widest mb-2">4H Final AI Signal</p>
-                    <h2 id="signal-val-4h" class="text-5xl font-extrabold tracking-tight text-white mb-2">WAIT</h2>
-                    <p id="reason-val-4h" class="text-xs font-mono text-slate-400">Waiting for data...</p>
+                    <h2 id="signal-val-4h" class="text-5xl font-extrabold tracking-tight text-white">WAIT</h2>
                 </div>
 
                 <!-- Trade Zones -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="bg-emerald-900/20 border border-emerald-800/50 rounded-xl p-4 text-center">
                         <p class="text-xs text-emerald-400 uppercase tracking-wider mb-1">Buy Limits</p>
-                        <p id="buy-zone-4h" class="font-mono text-sm text-emerald-100">--</p>
+                        <p id="buy-zone-4h" class="font-mono text-base font-semibold text-emerald-100">--</p>
                     </div>
                     <div class="bg-rose-900/20 border border-rose-800/50 rounded-xl p-4 text-center">
                         <p class="text-xs text-rose-400 uppercase tracking-wider mb-1">Sell Limits</p>
-                        <p id="sell-zone-4h" class="font-mono text-sm text-rose-100">--</p>
+                        <p id="sell-zone-4h" class="font-mono text-base font-semibold text-rose-100">--</p>
                     </div>
                 </div>
 
-                <!-- Clean Equilibrium Target (TP) — Matches EQ 100% -->
+                <!-- Equilibrium Target (TP) -->
                 <div class="text-center pt-4 border-t border-slate-700">
                     <p class="text-xs text-sky-400 uppercase tracking-wider mb-3">4H Equilibrium Target (TP)</p>
                     <div class="bg-slate-800/80 rounded-xl p-4 border border-slate-700 shadow-inner">
@@ -131,7 +123,7 @@
             </button>
 
             <!-- FORCE RUN BUTTON -->
-            <button onclick="forceRun()" class="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-full font-semibold transition-colors shadow-[0_0_15px_rgba(217,119,6,0.5)] flex items-center justify-center gap-2">
+            <button id="force-btn" onclick="forceRun()" class="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-full font-semibold transition-colors shadow-[0_0_15px_rgba(217,119,6,0.5)] flex items-center justify-center gap-2">
                 <span>⚡ Force Engine Run</span>
             </button>
         </div>
@@ -146,33 +138,28 @@
             : "u76887273-cmd"; 
         const GITHUB_REPO = window.location.pathname.split("/")[1] || "eurusd_30M_4H"; 
 
-        // Helper: Format any price number in a string to 4 decimals
+        // Format any EUR/USD price number in a string to 4 decimals
         function formatPricesTo4Decimals(str) {
             if (!str) return "--";
-            return str.replace(/\b(\d+\.\d{4,5})\b/g, (match) => Number(match).toFixed(4));
+            return str.replace(/\b(\d+\.\d{3,6})\b/g, (match) => Number(match).toFixed(4));
         }
 
         function updateDxyArrow(rawReason) {
             if (!rawReason) return;
             const arrowEl = document.getElementById('dxy-arrow');
-            const subEl = document.getElementById('dxy-sub');
 
-            const match = rawReason.match(/DXY:(UP|DOWN|FLAT)\s*(\([^)]+\))?/i);
+            const match = rawReason.match(/(?:DXY|NAS):(UP|DOWN|FLAT)/i);
             if (match) {
                 const dir = match[1].toUpperCase();
-                const detail = match[2] || "";
                 if (dir === "UP") {
                     arrowEl.innerText = "▲ UP";
                     arrowEl.className = "text-2xl font-extrabold font-mono text-emerald-400 glow-green";
-                    subEl.innerText = detail ? `${detail} • USD Strong` : "USD Strong (EURUSD ▼)";
                 } else if (dir === "DOWN") {
                     arrowEl.innerText = "▼ DOWN";
                     arrowEl.className = "text-2xl font-extrabold font-mono text-rose-400 glow-red";
-                    subEl.innerText = detail ? `${detail} • USD Weak` : "USD Weak (EURUSD ▲)";
                 } else {
                     arrowEl.innerText = "► FLAT";
                     arrowEl.className = "text-2xl font-extrabold font-mono text-slate-300";
-                    subEl.innerText = "Neutral Dollar Flow";
                 }
             }
         }
@@ -181,25 +168,17 @@
             const sigEl = document.getElementById(`signal-val-${tf}`);
             sigEl.innerText = row.signal || "WAIT";
             if (row.signal === "BUY") {
-                sigEl.className = "text-5xl font-extrabold tracking-tight text-emerald-400 mb-2 glow-green";
+                sigEl.className = "text-5xl font-extrabold tracking-tight text-emerald-400 glow-green";
             } else if (row.signal === "SELL") {
-                sigEl.className = "text-5xl font-extrabold tracking-tight text-rose-400 mb-2 glow-red";
+                sigEl.className = "text-5xl font-extrabold tracking-tight text-rose-400 glow-red";
             } else {
-                sigEl.className = "text-5xl font-extrabold tracking-tight text-slate-300 mb-2";
+                sigEl.className = "text-5xl font-extrabold tracking-tight text-slate-300";
             }
 
-            const rawReason = row.reason || "Autonomous Execution";
-
-            // Extract EQ from reason if present so EQ and Equilibrium Target (TP) are ALWAYS 100% identical
+            const rawReason = row.reason || "";
             const eqMatch = rawReason.match(/EQ:\s*([0-9.]+)/i);
             const eqValue = eqMatch ? Number(eqMatch[1]) : (row.take_profit ? Number(row.take_profit) : null);
             const eqFormatted = eqValue !== null ? eqValue.toFixed(4) : "--";
-
-            let cleanReason = rawReason.replace(/\|\s*DXY:.*$/i, "").trim();
-            cleanReason = cleanReason.replace(/EQ:\s*[0-9.]+/i, `EQ:${eqFormatted}`);
-
-            document.getElementById(`reason-val-${tf}`).innerText = cleanReason;
-            document.getElementById(`status-${tf}`).innerText = `Status: ${row.status || 'ACTIVE'} (#${row.id})`;
 
             const zoneText = formatPricesTo4Decimals(row.entry_zone || "-");
             if (zoneText.includes("|")) {
@@ -217,7 +196,6 @@
                 document.getElementById(`sell-zone-${tf}`).innerText = zoneText;
             }
 
-            // Equilibrium Target (TP) box displays the exact same 4-decimal EQ value
             document.getElementById(`tp-val-${tf}`).innerText = eqFormatted;
         }
 
@@ -238,56 +216,33 @@
         }
 
         async function fetchData() {
-            const statusEl = document.getElementById('connection-status');
-            statusEl.innerText = "Syncing latest 5M run from Supabase...";
-            statusEl.className = "mt-2 text-xs font-mono text-yellow-400";
-
             try {
                 const [data30m, data4h] = await Promise.all([
                     fetchTableLatest("eurusd_grid_log_30m"),
                     fetchTableLatest("eurusd_grid_log_4h")
                 ]);
 
-                let hasData = false;
-
                 if (data30m && data30m.length > 0) {
-                    hasData = true;
                     const row30 = data30m[0];
                     const runTime = new Date(row30.created_at || row30.timestamp);
-                    // Time formatted WITHOUT seconds
                     document.getElementById('time-val').innerText = runTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    document.getElementById('run-id-val').innerText = `Run #${row30.id} • ${runTime.toLocaleDateString()}`;
-                    // Price formatted to 4 decimals
                     document.getElementById('price-val').innerText = Number(row30.price).toFixed(4);
                     renderTimeframeCard("30m", row30);
                     updateDxyArrow(row30.reason);
                 }
 
                 if (data4h && data4h.length > 0) {
-                    hasData = true;
                     const row4h = data4h[0];
                     if (!data30m || data30m.length === 0) {
                         const runTime = new Date(row4h.created_at || row4h.timestamp);
                         document.getElementById('time-val').innerText = runTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        document.getElementById('run-id-val').innerText = `Run #${row4h.id} • ${runTime.toLocaleDateString()}`;
                         document.getElementById('price-val').innerText = Number(row4h.price).toFixed(4);
                         updateDxyArrow(row4h.reason);
                     }
                     renderTimeframeCard("4h", row4h);
                 }
-
-                if (hasData) {
-                    const nowShort = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    statusEl.innerText = `Live Dual Dashboard Active • Checked ${nowShort}`;
-                    statusEl.className = "mt-2 text-xs font-mono text-emerald-400";
-                } else {
-                    statusEl.innerText = "Connected - Waiting for first engine run...";
-                    statusEl.className = "mt-2 text-xs font-mono text-sky-400";
-                }
             } catch (error) {
-                console.error(error);
-                statusEl.innerText = "Supabase Error: " + error.message;
-                statusEl.className = "mt-2 text-xs font-mono text-rose-500";
+                console.error("Supabase Error:", error);
             }
         }
 
@@ -300,23 +255,16 @@
                 localStorage.setItem("github_pat", token.trim()); 
             }
 
-            const statusEl = document.getElementById('connection-status');
-            statusEl.innerText = "Triggering Cloud Engine...";
-            statusEl.className = "mt-2 text-xs font-mono text-amber-400";
+            const btn = document.getElementById("force-btn");
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "<span>⏳ Triggering...</span>";
 
             try {
-                let response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/actions/workflows/main.yml/dispatches`, {
-                    method: "POST",
-                    headers: {
-                        "Accept": "application/vnd.github+json",
-                        "Authorization": `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ ref: "main" }) 
-                });
+                const workflows = ["main.yml", "pipeline.yml", "run-pipeline.yml"];
+                let response = null;
 
-                if (response.status === 404) {
-                    response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/actions/workflows/pipeline.yml/dispatches`, {
+                for (const wf of workflows) {
+                    response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/actions/workflows/${wf}/dispatches`, {
                         method: "POST",
                         headers: {
                             "Accept": "application/vnd.github+json",
@@ -325,15 +273,14 @@
                         },
                         body: JSON.stringify({ ref: "main" }) 
                     });
+                    if (response.status !== 404) break;
                 }
 
-                if (response.ok || response.status === 204) {
-                    alert("✅ EUR/USD Dual Engine (30M & 4H) has been force-started!\n\nIt will finish in ~40 seconds and appear automatically.");
-                    statusEl.innerText = "Engine Running in Cloud... Auto-refreshing every 30s";
-                    statusEl.className = "mt-2 text-xs font-mono text-amber-400";
+                if (response && (response.ok || response.status === 204)) {
+                    alert("✅ EUR/USD Dual Engine (30M & 4H) has been force-started!\n\nIt will finish in ~40 seconds and update automatically.");
                 } else {
-                    const errData = await response.json();
-                    if (response.status === 401 || response.status === 404 || response.status === 403) {
+                    const errData = response ? await response.json() : { message: "Workflow not found" };
+                    if (response && (response.status === 401 || response.status === 404 || response.status === 403)) {
                         localStorage.removeItem("github_pat");
                         localStorage.removeItem("github_pat_us30");
                         alert(`❌ Token needs permission for ${GITHUB_REPO} (or is expired). I cleared it from memory so you can paste a new one.`);
@@ -344,6 +291,8 @@
             } catch (error) {
                 console.error(error);
                 alert("Network error. Could not reach GitHub API.");
+            } finally {
+                btn.innerHTML = originalText;
             }
         }
 
