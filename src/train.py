@@ -2,18 +2,22 @@ import os
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 
-TIMEFRAMES = ["30m", "4h"]
+HORIZONS = {
+    "30m": 6,   # 6 x 5-min bars = 30 Minutes
+    "4h":  48   # 48 x 5-min bars = 4 Hours
+}
 
-def prepare_features(df):
+FEATURES = ["ema_diff", "rsi", "atr", "ret_3", "ret_12", "vol_ratio"]
+
+def build_features(df):
     df = df.copy()
-    df["return_1"] = df["close"].pct_change(1)
-    df["return_3"] = df["close"].pct_change(3)
     df["ema_20"] = df["close"].ewm(span=20, adjust=False).mean()
     df["ema_50"] = df["close"].ewm(span=50, adjust=False).mean()
+    df["ema_diff"] = df["ema_20"] - df["ema_50"]
 
-    # ATR (14) in 5-decimal price units
+    # ATR (14)
     high_low = df["high"] - df["low"]
     high_close = (df["high"] - df["close"].shift()).abs()
     low_close = (df["low"] - df["close"].shift()).abs()
@@ -27,34 +31,41 @@ def prepare_features(df):
     rs = gain / (loss + 1e-9)
     df["rsi"] = 100 - (100 / (1 + rs))
 
-    # Distance from 20-EMA Equilibrium normalized by ATR
-    df["dist_eq"] = (df["close"] - df["ema_20"]) / (df["atr"] + 1e-7)
+    # Momentum & Volume
+    df["ret_3"] = df["close"].pct_change(3)
+    df["ret_12"] = df["close"].pct_change(12)
+    df["vol_ratio"] = df["volume"] / (df["volume"].rolling(20).mean() + 1e-5)
 
-    # Target: Will price move higher over the next 3 bars?
-    df["target"] = (df["close"].shift(-3) > df["close"]).astype(int)
-    df = df.dropna().reset_index(drop=True)
     return df
 
-def train_for_timeframe(tf):
-    csv_path = f"data_{tf}.csv"
-    if not os.path.exists(csv_path):
-        print(f"Skipping {tf}: {csv_path} not found.")
-        return
+def train_horizon(df_base, tf_name, horizon_bars):
+    df = df_base.copy()
 
-    df = pd.read_csv(csv_path)
-    df_feat = prepare_features(df)
-    features = ["return_1", "return_3", "rsi", "atr", "dist_eq"]
+    # Future max high (upside) and min low (downside) over next N M5 bars
+    indexer = pd.api.indexers.FixedForwardWindowIndexer(window_size=horizon_bars)
+    future_high = df["high"].shift(-1).rolling(window=indexer).max()
+    future_low = df["low"].shift(-1).rolling(window=indexer).min()
 
-    X = df_feat[features]
-    y = df_feat["target"]
+    df["target_up"] = (future_high - df["close"]).clip(lower=0.0001)
+    df["target_down"] = (df["close"] - future_low).clip(lower=0.0001)
 
-    model = RandomForestClassifier(n_estimators=150, max_depth=6, random_state=42)
-    model.fit(X.iloc[:-3], y.iloc[:-3])
+    df_clean = df.dropna(subset=FEATURES + ["target_up", "target_down"]).reset_index(drop=True)
+    X = df_clean[FEATURES]
 
-    model_path = f"model_{tf}.pkl"
-    joblib.dump(model, model_path)
-    print(f"[{tf.upper()}] Model trained on {len(X)-3} rows -> saved to {model_path}")
+    model_up = RandomForestRegressor(n_estimators=100, max_depth=8, random_state=42, n_jobs=-1)
+    model_down = RandomForestRegressor(n_estimators=100, max_depth=8, random_state=42, n_jobs=-1)
+
+    model_up.fit(X, df_clean["target_up"])
+    model_down.fit(X, df_clean["target_down"])
+
+    joblib.dump({"up": model_up, "down": model_down}, f"model_{tf_name}.pkl")
+    print(f"[{tf_name.upper()}] Trained Upside/Downside Regressors on {len(X)} M5 bars (Horizon: {horizon_bars} bars)")
 
 if __name__ == "__main__":
-    for tf in TIMEFRAMES:
-        train_for_timeframe(tf)
+    if not os.path.exists("data_m5.csv"):
+        print("data_m5.csv not found.")
+    else:
+        raw_df = pd.read_csv("data_m5.csv")
+        feat_df = build_features(raw_df)
+        for tf, bars in HORIZONS.items():
+            train_horizon(feat_df, tf, bars)
