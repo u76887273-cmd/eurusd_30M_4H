@@ -9,37 +9,40 @@ HORIZONS = {
     "4h":  48   # 48 x 5-min bars = 4 Hours
 }
 
-FEATURES = ["ema_diff", "rsi", "atr", "ret_3", "ret_12", "vol_ratio"]
+FEATURES = ["ema_diff", "rsi", "atr", "ret_short", "ret_long", "vol_ratio"]
 
-def build_features(df):
+def build_features(df, tf_name="30m"):
     df = df.copy()
-    df["ema_20"] = df["close"].ewm(span=20, adjust=False).mean()
-    df["ema_50"] = df["close"].ewm(span=50, adjust=False).mean()
-    df["ema_diff"] = df["ema_20"] - df["ema_50"]
+    # Scale indicator periods to match the timeframe (30m vs 4h)
+    scale = 1 if tf_name == "30m" else 8
 
-    # ATR (14)
+    df["ema_fast"] = df["close"].ewm(span=20 * scale, adjust=False).mean()
+    df["ema_slow"] = df["close"].ewm(span=50 * scale, adjust=False).mean()
+    df["ema_diff"] = df["ema_fast"] - df["ema_slow"]
+
+    # Timeframe-specific ATR
     high_low = df["high"] - df["low"]
     high_close = (df["high"] - df["close"].shift()).abs()
     low_close = (df["low"] - df["close"].shift()).abs()
     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-    df["atr"] = tr.rolling(14).mean()
+    df["atr"] = tr.rolling(14 * scale).mean()
 
-    # RSI (14)
-    delta = df["close"].diff()
-    gain = delta.clip(lower=0).rolling(14).mean()
-    loss = -delta.clip(upper=0).rolling(14).mean()
+    # Timeframe-specific RSI (True 30m RSI vs True 4h RSI)
+    delta = df["close"].diff(scale)
+    gain = delta.clip(lower=0).rolling(14 * scale).mean()
+    loss = -delta.clip(upper=0).rolling(14 * scale).mean()
     rs = gain / (loss + 1e-9)
     df["rsi"] = 100 - (100 / (1 + rs))
 
-    # Momentum & Volume
-    df["ret_3"] = df["close"].pct_change(3)
-    df["ret_12"] = df["close"].pct_change(12)
-    df["vol_ratio"] = df["volume"] / (df["volume"].rolling(20).mean() + 1e-5)
+    # Timeframe-specific Momentum & Volume
+    df["ret_short"] = df["close"].pct_change(3 * scale)
+    df["ret_long"] = df["close"].pct_change(12 * scale)
+    df["vol_ratio"] = df["volume"] / (df["volume"].rolling(20 * scale).mean() + 1e-5)
 
     return df
 
-def train_horizon(df_base, tf_name, horizon_bars):
-    df = df_base.copy()
+def train_horizon(raw_df, tf_name, horizon_bars):
+    df = build_features(raw_df, tf_name)
 
     # Future max high (upside) and min low (downside) over next N M5 bars
     indexer = pd.api.indexers.FixedForwardWindowIndexer(window_size=horizon_bars)
@@ -59,13 +62,12 @@ def train_horizon(df_base, tf_name, horizon_bars):
     model_down.fit(X, df_clean["target_down"])
 
     joblib.dump({"up": model_up, "down": model_down}, f"model_{tf_name}.pkl")
-    print(f"[{tf_name.upper()}] Trained Upside/Downside Regressors on {len(X)} M5 bars (Horizon: {horizon_bars} bars)")
+    print(f"[{tf_name.upper()}] Trained Upside/Downside Regressors on {len(X)} bars (Latest {tf_name.upper()} RSI: {df_clean['rsi'].iloc[-1]:.1f})")
 
 if __name__ == "__main__":
     if not os.path.exists("data_m5.csv"):
         print("data_m5.csv not found.")
     else:
         raw_df = pd.read_csv("data_m5.csv")
-        feat_df = build_features(raw_df)
         for tf, bars in HORIZONS.items():
-            train_horizon(feat_df, tf, bars)
+            train_horizon(raw_df, tf, bars)
