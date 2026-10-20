@@ -4,19 +4,13 @@ import joblib
 import psycopg
 import yfinance as yf
 import pandas as pd
-from train import prepare_features
+from train import build_features, FEATURES
 
 DB_URL = os.environ.get("DATABASE_URL")
 
-CONFIG = {
-    "30m": {
-        "table": "eurusd_grid_log_30m",
-        "zone_half_width": 0.0003   # 3 pips entry zone buffer
-    },
-    "4h": {
-        "table": "eurusd_grid_log_4h",
-        "zone_half_width": 0.0006   # 6 pips entry zone buffer
-    }
+TABLES = {
+    "30m": "eurusd_grid_log_30m",
+    "4h":  "eurusd_grid_log_4h"
 }
 
 def get_dxy_direction():
@@ -54,62 +48,84 @@ def init_db_table(conn, table_name):
         """)
     conn.commit()
 
-def predict_for_timeframe(conn, tf, dxy_tag):
-    cfg = CONFIG[tf]
-    csv_path = f"data_{tf}.csv"
+def predict_for_timeframe(conn, df_feat, tf, dxy_tag):
     model_path = f"model_{tf}.pkl"
+    table_name = TABLES[tf]
 
-    if not (os.path.exists(csv_path) and os.path.exists(model_path)):
-        print(f"[{tf.upper()}] Missing data or model file.")
+    if not os.path.exists(model_path):
+        print(f"[{tf.upper()}] Model file {model_path} missing.")
         return
 
-    df = pd.read_csv(csv_path)
-    df_feat = prepare_features(df)
-    latest = df_feat.iloc[-1]
+    models = joblib.load(model_path)
+    latest_row = df_feat.iloc[[-1]]
+    X_latest = latest_row[FEATURES]
 
-    features = ["return_1", "return_3", "rsi", "atr", "dist_eq"]
-    model = joblib.load(model_path)
-    prob_up = model.predict_proba(df_feat[features].iloc[[-1]])[0][1]
+    price = float(latest_row["close"].iloc[0])
+    rsi = float(latest_row["rsi"].iloc[0])
 
-    # 4-Decimal Precision (Pip standard)
-    price = round(float(latest["close"]), 4)
-    eq_target = round(float(latest["ema_20"]), 4)
-    rsi = float(latest["rsi"])
+    # Predict Upside and Downside range in price units
+    pred_up = float(models["up"].predict(X_latest)[0])
+    pred_down = float(models["down"].predict(X_latest)[0])
 
-    signal = "BUY" if prob_up >= 0.52 else ("SELL" if prob_up <= 0.48 else "NEUTRAL")
+    proj_high = price + pred_up
+    proj_low = price - pred_down
+    total_range = max(proj_high - proj_low, 0.0004)
 
-    # Equilibrium (EQ) and Take Profit (TP) are the exact same Equilibrium value
-    take_profit = eq_target
+    # Equilibrium (Midline of AI Projected Range)
+    midline_eq = (proj_high + proj_low) / 2.0
 
-    w = cfg["zone_half_width"]
-    buy_low = round(price - (w * 2), 4)
-    buy_high = round(price - (w * 0.5), 4)
-    sell_low = round(price + (w * 0.5), 4)
-    sell_high = round(price + (w * 2), 4)
+    # US30 / JP225 0.6 Ratio / Midline Rule
+    up_ratio = pred_up / total_range
+    down_ratio = pred_down / total_range
+
+    if up_ratio >= 0.55 and price < midline_eq:
+        signal = "BUY"
+    elif down_ratio >= 0.55 and price > midline_eq:
+        signal = "SELL"
+    elif price < midline_eq:
+        signal = "BUY"
+    else:
+        signal = "SELL"
+
+    # Dynamic 20% Entry Limit Zones sliced from Projected High/Low Range
+    zone_height = max(total_range * 0.20, 0.0002)
+    buy_low = round(proj_low, 4)
+    buy_high = round(proj_low + zone_height, 4)
+    sell_low = round(proj_high - zone_height, 4)
+    sell_high = round(proj_high, 4)
+
+    price_4d = round(price, 4)
+    eq_4d = round(midline_eq, 4)
 
     if signal == "BUY":
-        entry_zone = f"B: {buy_low:.4f} - {price:.4f} | S: WAITING"
+        entry_zone = f"B: {buy_low:.4f} - {buy_high:.4f} | S: WAITING"
     elif signal == "SELL":
-        entry_zone = f"B: WAITING | S: {price:.4f} - {sell_high:.4f}"
+        entry_zone = f"B: WAITING | S: {sell_low:.4f} - {sell_high:.4f}"
     else:
         entry_zone = f"B: {buy_low:.4f} - {buy_high:.4f} | S: {sell_low:.4f} - {sell_high:.4f}"
 
-    reason = f"Prob:{prob_up*100:.1f}% | RSI:{rsi:.1f} | EQ:{take_profit:.4f} | {dxy_tag}"
+    bias_pct = max(up_ratio, down_ratio) * 100.0
+    reason = f"Bias:{bias_pct:.1f}% | RSI:{rsi:.1f} | EQ:{eq_4d:.4f} | {dxy_tag}"
     run_ts = datetime.datetime.now(datetime.timezone.utc)
 
-    init_db_table(conn, cfg["table"])
+    init_db_table(conn, table_name)
 
     with conn.cursor() as cur:
         cur.execute(f"""
-            INSERT INTO {cfg['table']} (timestamp, price, signal, reason, entry_zone, entry, take_profit, status)
+            INSERT INTO {table_name} (timestamp, price, signal, reason, entry_zone, entry, take_profit, status)
             VALUES (%s, %s, %s, %s, %s, %s, %s, 'ACTIVE')
-        """, (run_ts, price, signal, reason, entry_zone, price, take_profit))
+        """, (run_ts, price_4d, signal, reason, entry_zone, price_4d, eq_4d))
     conn.commit()
-    print(f"[{tf.upper()}] Logged {signal} @ {price:.4f} -> EQ/TP: {take_profit:.4f} ({dxy_tag})")
+    print(f"[{tf.upper()}] {signal} @ {price_4d:.4f} | EQ/TP: {eq_4d:.4f} | Zone: {entry_zone}")
 
 if __name__ == "__main__":
-    dxy_status = get_dxy_direction()
-    print(f"Live US Dollar Index Status: {dxy_status}")
-    with psycopg.connect(DB_URL) as conn:
-        for tf in ["30m", "4h"]:
-            predict_for_timeframe(conn, tf, dxy_status)
+    if not os.path.exists("data_m5.csv"):
+        print("data_m5.csv missing.")
+    else:
+        dxy_status = get_dxy_direction()
+        print(f"Live US Dollar Index Status: {dxy_status}")
+        raw_df = pd.read_csv("data_m5.csv")
+        df_feat = build_features(raw_df).dropna().reset_index(drop=True)
+        with psycopg.connect(DB_URL) as conn:
+            for tf in ["30m", "4h"]:
+                predict_for_timeframe(conn, df_feat, tf, dxy_status)
