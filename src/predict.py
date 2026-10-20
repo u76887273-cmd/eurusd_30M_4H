@@ -74,18 +74,13 @@ def predict_for_timeframe(conn, df_feat, tf, dxy_tag):
     # Equilibrium (Midline of AI Projected Range)
     midline_eq = (proj_high + proj_low) / 2.0
 
-    # US30 / JP225 0.6 Ratio / Midline Rule
-    up_ratio = pred_up / total_range
-    down_ratio = pred_down / total_range
-
-    if up_ratio >= 0.55 and price < midline_eq:
+    # Pure Midline Rule (0.6 condition removed)
+    if price < midline_eq:
         signal = "BUY"
-    elif down_ratio >= 0.55 and price > midline_eq:
+    elif price > midline_eq:
         signal = "SELL"
-    elif price < midline_eq:
-        signal = "BUY"
     else:
-        signal = "SELL"
+        signal = "WAIT"
 
     # Dynamic 20% Entry Limit Zones sliced from Projected High/Low Range
     zone_height = max(total_range * 0.20, 0.0002)
@@ -104,7 +99,10 @@ def predict_for_timeframe(conn, df_feat, tf, dxy_tag):
     else:
         entry_zone = f"B: {buy_low:.4f} - {buy_high:.4f} | S: {sell_low:.4f} - {sell_high:.4f}"
 
-    bias_pct = max(up_ratio, down_ratio) * 100.0
+    up_ratio = (pred_up / total_range) * 100.0
+    down_ratio = (pred_down / total_range) * 100.0
+    bias_pct = up_ratio if signal == "BUY" else down_ratio
+
     reason = f"Bias:{bias_pct:.1f}% | RSI:{rsi:.1f} | EQ:{eq_4d:.4f} | {dxy_tag}"
     run_ts = datetime.datetime.now(datetime.timezone.utc)
 
