@@ -2,7 +2,6 @@ import os
 import datetime
 import joblib
 import psycopg
-import yfinance as yf
 import pandas as pd
 from train import build_features, FEATURES
 
@@ -12,22 +11,6 @@ TABLES = {
     "30m": "eurusd_grid_log_30m",
     "4h":  "eurusd_grid_log_4h"
 }
-
-def get_dxy_direction():
-    """Fetches live US Dollar Index (DX-Y.NYB) 15m trend."""
-    for ticker in ["DX-Y.NYB", "UUP"]:
-        try:
-            data = yf.download(ticker, period="2d", interval="15m", progress=False)
-            if not data.empty and len(data) >= 2:
-                close_col = data["Close"]
-                last_close = float(close_col.iloc[-1].iloc[0]) if hasattr(close_col.iloc[-1], "iloc") else float(close_col.iloc[-1])
-                prev_close = float(close_col.iloc[-2].iloc[0]) if hasattr(close_col.iloc[-2], "iloc") else float(close_col.iloc[-2])
-                change_pct = ((last_close - prev_close) / prev_close) * 100
-                direction = "UP" if last_close >= prev_close else "DOWN"
-                return f"DXY:{direction} ({last_close:.2f} | {change_pct:+.2f}%)"
-        except Exception as e:
-            print(f"Ticker {ticker} check failed: {e}")
-    return "DXY:FLAT"
 
 def init_db_table(conn, table_name):
     with conn.cursor() as cur:
@@ -48,7 +31,7 @@ def init_db_table(conn, table_name):
         """)
     conn.commit()
 
-def predict_for_timeframe(conn, raw_df, tf, dxy_tag):
+def predict_for_timeframe(conn, raw_df, tf):
     model_path = f"model_{tf}.pkl"
     table_name = TABLES[tf]
 
@@ -56,7 +39,6 @@ def predict_for_timeframe(conn, raw_df, tf, dxy_tag):
         print(f"[{tf.upper()}] Model file {model_path} missing.")
         return
 
-    # Build timeframe-specific features so 30m and 4h each have their own true RSI & EMAs
     df_feat = build_features(raw_df, tf).dropna().reset_index(drop=True)
     models = joblib.load(model_path)
     latest_row = df_feat.iloc[[-1]]
@@ -65,7 +47,6 @@ def predict_for_timeframe(conn, raw_df, tf, dxy_tag):
     price = float(latest_row["close"].iloc[0])
     rsi = float(latest_row["rsi"].iloc[0])
 
-    # Predict Upside and Downside range in price units
     pred_up = float(models["up"].predict(X_latest)[0])
     pred_down = float(models["down"].predict(X_latest)[0])
 
@@ -76,7 +57,6 @@ def predict_for_timeframe(conn, raw_df, tf, dxy_tag):
     # Equilibrium (Midline of AI Projected Range)
     midline_eq = (proj_high + proj_low) / 2.0
 
-    # Pure Midline Rule
     if price < midline_eq:
         signal = "BUY"
     elif price > midline_eq:
@@ -84,7 +64,7 @@ def predict_for_timeframe(conn, raw_df, tf, dxy_tag):
     else:
         signal = "WAIT"
 
-    # Dynamic 20% Entry Limit Zones sliced from Projected High/Low Range
+    # Dynamic 20% Entry Limit Zones
     zone_height = max(total_range * 0.20, 0.0002)
     buy_low = round(proj_low, 4)
     buy_high = round(proj_low + zone_height, 4)
@@ -105,7 +85,7 @@ def predict_for_timeframe(conn, raw_df, tf, dxy_tag):
     down_ratio = (pred_down / total_range) * 100.0
     bias_pct = up_ratio if signal == "BUY" else down_ratio
 
-    reason = f"Bias:{bias_pct:.1f}% | RSI:{rsi:.1f} | EQ:{eq_4d:.4f} | {dxy_tag}"
+    reason = f"Bias:{bias_pct:.1f}% | RSI:{rsi:.1f} | EQ:{eq_4d:.4f}"
     run_ts = datetime.datetime.now(datetime.timezone.utc)
 
     init_db_table(conn, table_name)
@@ -116,15 +96,13 @@ def predict_for_timeframe(conn, raw_df, tf, dxy_tag):
             VALUES (%s, %s, %s, %s, %s, %s, %s, 'ACTIVE')
         """, (run_ts, price_4d, signal, reason, entry_zone, price_4d, eq_4d))
     conn.commit()
-    print(f"[{tf.upper()}] {signal} @ {price_4d:.4f} | RSI: {rsi:.1f} | EQ/TP: {eq_4d:.4f}")
+    print(f"[{tf.upper()}] {signal} @ {price_4d:.4f} | Bias: {bias_pct:.1f}% | RSI: {rsi:.1f} | EQ/TP: {eq_4d:.4f}")
 
 if __name__ == "__main__":
     if not os.path.exists("data_m5.csv"):
         print("data_m5.csv missing.")
     else:
-        dxy_status = get_dxy_direction()
-        print(f"Live US Dollar Index Status: {dxy_status}")
         raw_df = pd.read_csv("data_m5.csv")
         with psycopg.connect(DB_URL) as conn:
             for tf in ["30m", "4h"]:
-                predict_for_timeframe(conn, raw_df, tf, dxy_status)
+                predict_for_timeframe(conn, raw_df, tf)
