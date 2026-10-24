@@ -13,7 +13,6 @@ FEATURES = ["ema_diff", "rsi", "atr", "ret_short", "ret_long", "vol_ratio"]
 
 def build_features(df, tf_name="30m"):
     df = df.copy()
-    # Scale indicator periods to match the timeframe (30m vs 4h)
     scale = 1 if tf_name == "30m" else 8
 
     df["ema_fast"] = df["close"].ewm(span=20 * scale, adjust=False).mean()
@@ -27,7 +26,7 @@ def build_features(df, tf_name="30m"):
     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     df["atr"] = tr.rolling(14 * scale).mean()
 
-    # Timeframe-specific RSI (True 30m RSI vs True 4h RSI)
+    # Timeframe-specific RSI
     delta = df["close"].diff(scale)
     gain = delta.clip(lower=0).rolling(14 * scale).mean()
     loss = -delta.clip(upper=0).rolling(14 * scale).mean()
@@ -44,7 +43,6 @@ def build_features(df, tf_name="30m"):
 def train_horizon(raw_df, tf_name, horizon_bars):
     df = build_features(raw_df, tf_name)
 
-    # Future max high (upside) and min low (downside) over next N M5 bars
     indexer = pd.api.indexers.FixedForwardWindowIndexer(window_size=horizon_bars)
     future_high = df["high"].shift(-1).rolling(window=indexer).max()
     future_low = df["low"].shift(-1).rolling(window=indexer).min()
@@ -62,7 +60,7 @@ def train_horizon(raw_df, tf_name, horizon_bars):
     model_down.fit(X, df_clean["target_down"])
 
     joblib.dump({"up": model_up, "down": model_down}, f"model_{tf_name}.pkl")
-    print(f"[{tf_name.upper()}] Trained Upside/Downside Regressors on {len(X)} bars (Latest {tf_name.upper()} RSI: {df_clean['rsi'].iloc[-1]:.1f})")
+    print(f"[{tf_name.upper()}] Trained Upside/Downside Regressors on {len(X):,} bars (Latest {tf_name.upper()} RSI: {df_clean['rsi'].iloc[-1]:.1f})")
 
 if __name__ == "__main__":
     if not os.path.exists("data_m5.csv"):
