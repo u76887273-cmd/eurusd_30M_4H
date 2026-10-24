@@ -1,5 +1,6 @@
 import os
 import datetime
+import psycopg
 import pandas as pd
 from twisted.internet import reactor
 from ctrader_open_api import Client, Protobuf, TcpProtocol, EndPoints
@@ -40,11 +41,46 @@ def on_trendbars(result):
         })
 
     df = pd.DataFrame(rows).sort_values("timestamp").reset_index(drop=True)
-    # Save to both data_30m.csv and data_4h.csv so validator.py works without changes
+
+    # Sync with Supabase persistent historical storage (eurusd_features_m5)
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url and not df.empty:
+        with psycopg.connect(db_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS eurusd_features_m5 (
+                        timestamp TIMESTAMPTZ NOT NULL UNIQUE,
+                        open DOUBLE PRECISION,
+                        high DOUBLE PRECISION,
+                        low DOUBLE PRECISION,
+                        close DOUBLE PRECISION,
+                        volume DOUBLE PRECISION
+                    );
+                """)
+                tuples = [
+                    (r["timestamp"].isoformat(), float(r["open"]), float(r["high"]), float(r["low"]), float(r["close"]), float(r["volume"]))
+                    for _, r in df.iterrows()
+                ]
+                cur.executemany("""
+                    INSERT INTO eurusd_features_m5 (timestamp, open, high, low, close, volume)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (timestamp) DO UPDATE SET
+                        high = GREATEST(eurusd_features_m5.high, EXCLUDED.high),
+                        low = LEAST(eurusd_features_m5.low, EXCLUDED.low),
+                        close = EXCLUDED.close,
+                        volume = EXCLUDED.volume;
+                """, tuples)
+
+                cur.execute("SELECT timestamp, open, high, low, close, volume FROM eurusd_features_m5 ORDER BY timestamp ASC")
+                full_history = cur.fetchall()
+                df = pd.DataFrame(full_history, columns=["timestamp", "open", "high", "low", "close", "volume"])
+            conn.commit()
+
+    # Save to CSVs so train.py, predict.py, and validator.py work seamlessly
     df.to_csv("data_m5.csv", index=False)
     df.to_csv("data_30m.csv", index=False)
     df.to_csv("data_4h.csv", index=False)
-    print(f"[M5] Saved {len(df)} 5-min bars (Latest close: {df['close'].iloc[-1]:.4f})")
+    print(f"[M5] Saved {len(df):,} total 5-min bars (Latest close: {df['close'].iloc[-1]:.4f})")
 
     if reactor.running:
         reactor.stop()
@@ -52,7 +88,6 @@ def on_trendbars(result):
 def on_account_auth(result):
     print("cTrader account authenticated. Pulling EUR/USD M5 bars...")
     now = datetime.datetime.now(datetime.timezone.utc)
-    # Fetch 14 days of M5 bars (~2,800 bars)
     from_ts = int((now - datetime.timedelta(days=14)).timestamp() * 1000)
     to_ts = int(now.timestamp() * 1000)
 
