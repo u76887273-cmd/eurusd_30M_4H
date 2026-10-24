@@ -2,13 +2,22 @@ name: EURUSD Dual 30M & 4H Quantum Engine
 
 on:
   schedule:
-    - cron: '*/15 * * * *' # Recommended: 15m to match 30M/4H cycles and save Action minutes
+    # 1. Sunday 21:00–23:45 UTC (Includes 1-hour safety buffer for November Winter Time)
+    - cron: '*/15 21-23 * * 0'
+    # 2. Monday through Thursday (All day, every 15 mins)
+    - cron: '*/15 * * * 1-4'
+    # 3. Friday 00:00–22:45 UTC (Includes 1-hour safety buffer for November Winter Time)
+    - cron: '*/15 0-22 * * 5'
   workflow_dispatch:
     inputs:
       force_train:
         description: 'Force AI model retraining?'
         required: false
         default: 'false'
+
+concurrency:
+  group: eurusd-quantum-pipeline
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -23,6 +32,7 @@ jobs:
       CTRADER_CLIENT_SECRET: ${{ secrets.CTRADER_CLIENT_SECRET }}
       CTRADER_ACCESS_TOKEN: ${{ secrets.CTRADER_ACCESS_TOKEN }}
       ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+      CTRADER_ACCOUNT_ID: ${{ secrets.CTRADER_ACCOUNT_ID }}
       SYMBOL_ID: 1
 
     steps:
@@ -66,7 +76,7 @@ jobs:
           fi
 
           if [ ! -f "model_30m.pkl" ] || [ ! -f "model_4h.pkl" ] || [ "$CURRENT_HOUR" = "00" ]; then
-            echo "🔄 Running EUR/USD AI Model Training..."
+            echo "🔄 Running EUR/USD AI Model Training on Full Historical Dataset..."
             python src/train.py
             date -u +'%Y-%m-%dT%H:%M:%SZ' > last_trained.txt
           else
