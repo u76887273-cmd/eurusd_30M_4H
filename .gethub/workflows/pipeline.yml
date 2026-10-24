@@ -1,17 +1,14 @@
-name: EURUSD Dual 30M & 4H Quantum Engine
+name: EURUSD Dual 30M and 4H Quantum Engine
 
 on:
   schedule:
-    # 1. Sunday 21:00–23:45 UTC (Includes 1-hour safety buffer for November Winter Time)
     - cron: '*/15 21-23 * * 0'
-    # 2. Monday through Thursday (All day, every 15 mins)
     - cron: '*/15 * * * 1-4'
-    # 3. Friday 00:00–22:45 UTC (Includes 1-hour safety buffer for November Winter Time)
     - cron: '*/15 0-22 * * 5'
   workflow_dispatch:
     inputs:
       force_train:
-        description: 'Force AI model retraining?'
+        description: 'Force AI model retraining (true/false)'
         required: false
         default: 'false'
 
@@ -25,6 +22,7 @@ permissions:
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       PYTHONPATH: .:./src
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -43,44 +41,39 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'
 
       - name: Install Dependencies
-        run: pip install -r requirements.txt
+        run: pip install --no-cache-dir -r requirements.txt
 
-      - name: Get Current UTC Date
-        id: date
-        run: echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_ENV
-
-      - name: Restore Today's Trained AI Models from Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            *.pkl
-            last_trained.txt
-          key: eurusd-models-v1-Linux-${{ env.date }}-${{ github.run_id }}
-          restore-keys: |
-            eurusd-models-v1-Linux-${{ env.date }}-
-
-      - name: 1. Fetch Live Market Data & Spot Price (cTrader)
+      - name: 1. Fetch Live Market Data and Spot Price (cTrader)
         run: python src/data.py
 
       - name: 2. Daily AI Model Retraining (Once Per Day or Forced)
         run: |
-          CURRENT_HOUR=$(date -u +%H)
+          TODAY_UTC=$(date -u +'%Y-%m-%d')
           FORCE_TRAIN=$(echo "${{ github.event.inputs.force_train }}" | tr '[:upper:]' '[:lower:]')
-          
+          LAST_DATE=""
+          if [ -f "last_trained.txt" ]; then
+            LAST_DATE=$(cut -c 1-10 last_trained.txt)
+          fi
+
           if [ "$FORCE_TRAIN" = "true" ]; then
             echo "FORCING model retrain: Removing local models..."
             rm -f *.pkl last_trained.txt
           fi
 
-          if [ ! -f "model_30m.pkl" ] || [ ! -f "model_4h.pkl" ] || [ "$CURRENT_HOUR" = "00" ]; then
-            echo "🔄 Running EUR/USD AI Model Training on Full Historical Dataset..."
+          if [ ! -f "model_30m.pkl" ] || [ ! -f "model_4h.pkl" ] || [ "$LAST_DATE" != "$TODAY_UTC" ]; then
+            echo "Running EUR/USD AI Model Training on Full Historical Dataset..."
             python src/train.py
             date -u +'%Y-%m-%dT%H:%M:%SZ' > last_trained.txt
+
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -f model_30m.pkl model_4h.pkl last_trained.txt
+            git commit -m "chore: update daily EURUSD models ($TODAY_UTC) [skip ci]" || true
+            git push origin HEAD:main || true
           else
-            echo "⚡ Skipping training! Using cached AI models for fast prediction."
+            echo "Skipping training! Models already trained today ($TODAY_UTC)."
           fi
 
       - name: 3. Run AI Prediction Engine
